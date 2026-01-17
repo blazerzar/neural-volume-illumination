@@ -1,0 +1,5 @@
+{
+    "watch": ["vpt/src"],
+    "ext": "js,html,glsl,wgsl",
+    "exec": "cd vpt; npm run build; npm start;"
+}
