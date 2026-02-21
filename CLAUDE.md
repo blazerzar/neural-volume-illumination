@@ -11,29 +11,20 @@ This is a master's thesis project for "Neural caching of dynamic volume illumina
 
 ## Build and Run Commands
 
+**IMPORTANT:** This project uses `nodemon` for automatic rebuilding during development. Changes to source files will be automatically built. Do NOT manually run build commands - nodemon handles this.
+
 ### VPT Framework
 
 ```bash
-# Build the framework (bundles JS, compiles GLSL/WGSL shaders)
+# Start development server with auto-rebuild (nodemon)
+nodemon
+
+# Manual build (ONLY if nodemon is not running)
 cd vpt
 npm run build
-# OR
-node bin/packer
-# OR
-make
 
 # Clean build artifacts
 make clean
-
-# Start development server
-npm run start
-# OR
-node bin/server-express
-# OR
-make serve
-
-# Watch mode - auto-rebuild on source changes
-make watch
 ```
 
 The build process:
@@ -159,10 +150,10 @@ WebGPU is currently the default (see `Application.js:31`).
 
 ### Shader Development
 
-- Edit GLSL files in `src/glsl/`
-- Run `make watch` for auto-rebuild during development
-- Use mixins from `src/glsl/mixins/` for common functionality
-- Random number generation: `#include "mixins/rand.glsl"`
+- Edit GLSL/WGSL files in `vpt/src/glsl/` or `vpt/src/wgsl/`
+- nodemon automatically rebuilds on file changes (configured in `nodemon.json`)
+- Use mixins from `src/glsl/mixins/` or `src/wgsl/mixins/` for common functionality
+- Random number generation: `#include "mixins/random/hash/pcg.glsl"`
 - Distributions: `#include "mixins/random/distribution/sphere.glsl"`
 
 ## Dependencies

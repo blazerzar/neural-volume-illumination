@@ -1,2 +1,4 @@
 /data/volumes/*
+/data/radiance/*
+__pycache__/
 !.gitkeep

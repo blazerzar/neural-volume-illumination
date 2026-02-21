@@ -1,0 +1,13 @@
+[project]
+name = "neural-volume-illumination"
+version = "0.1.0"
+description = "Neural caching of dynamic volume illumination"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "ipykernel>=7.2.0",
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.2",
+    "torch>=2.10.0",
+    "tqdm>=4.67.3",
+]
