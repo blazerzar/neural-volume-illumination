@@ -5,6 +5,7 @@ Usage:
 Options:
     --show-images                    Display images
     --pause                          Pause after each image
+    --wait                           Wait for a key press at the start
     --verbose                        Show loading and training progress
 """
 
@@ -33,12 +34,12 @@ def main():
         exit(1)
 
     show_images = False
+    wait = False
     pause = False
     for i in range(3, len(argv)):
-        if argv[i] == '--show-images':
-            show_images = True
-        elif argv[i] == '--pause':
-            pause = True
+        show_images |= argv[i] == '--show-images'
+        pause |= argv[i] == '--pause'
+        wait |= argv[i] == '--wait'
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -72,6 +73,7 @@ def main():
             show_images=show_images,
             resolution=parameters[0]['resolution'],
             masks=masks,
+            wait=wait,
             pause=pause,
         )
 
@@ -88,6 +90,7 @@ def train_model(
     show_images=False,
     resolution=None,
     masks=None,
+    wait=False,
     pause=False,
 ):
     """Train the Radiance Field Network on the given data with specified
@@ -104,6 +107,7 @@ def train_model(
         - show_images: If True, display all original and predicted images.
         - resolution: Image resolution, required if show_images is True.
         - masks: Boolean masks of valid pixels, required if show_images is True.
+        - wait: If True, wait until a key press at the start.
         - pause: If True, pause after displaying each image until user input.
 
     Returns:
@@ -147,7 +151,7 @@ def train_model(
             ).astype(np.float32)
             combined = cv2.cvtColor(combined, cv2.COLOR_RGB2BGR)
             cv2.imshow('Radiance Field Network', combined)
-            if pause:
+            if pause or i == 0 and wait:
                 cv2.waitKey(0)
             else:
                 cv2.waitKey(10)

@@ -125,6 +125,10 @@ class MultiresolutionHashEncoding(nn.Module):
             [nn.Embedding(self._table_size(level), self.F) for level in range(self.L)]
         )
 
+        self.register_buffer(
+            'offsets', torch.cartesian_prod(*[torch.tensor([0, 1])] * self.d)
+        )
+
         # Initialize using He initialization
         for table in self.tables:
             nn.init.kaiming_normal_(table.weight)
@@ -138,11 +142,7 @@ class MultiresolutionHashEncoding(nn.Module):
             [1, 2654435761, 805459861], device=x.device, dtype=x.dtype
         )[: self.d]
 
-        hashed = torch.bitwise_xor((x * primes)[..., 0], (x * primes)[..., 1])
-        if self.d == 3:
-            hashed = torch.bitwise_xor(hashed, (x * primes)[..., 2])
-
-        return hashed % self.T
+        return torch.sum(x * primes, dim=-1) % self.T
 
     def _one_one_mapping(self, x, N_l):
         res = N_l + 1
@@ -166,10 +166,7 @@ class MultiresolutionHashEncoding(nn.Module):
 
             # Create all 4 or 8 corner indices
             # shape: (batch_size, 2^d, d)
-            offsets = torch.cartesian_prod(
-                *[torch.tensor([0, 1], device=x.device)] * self.d
-            ).unsqueeze(0)
-            corners = voxel_corner.unsqueeze(1) + offsets
+            corners = voxel_corner.unsqueeze(1) + self.offsets
 
             one_one = (N_l + 1) ** self.d <= self.T
 
@@ -184,7 +181,7 @@ class MultiresolutionHashEncoding(nn.Module):
             # 3. Linear interpolation w_l := x_l - floor(x_l)
             # shape: (batch_size, 2^d)
             w_l = (x * N_l - voxel_corner).unsqueeze(1)
-            corner_weights = offsets * w_l + (1 - offsets) * (1 - w_l)
+            corner_weights = self.offsets * w_l + (1 - self.offsets) * (1 - w_l)
             w = corner_weights.prod(dim=-1)
 
             # shape: (batch_size, F)

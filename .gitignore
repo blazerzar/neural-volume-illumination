@@ -1,5 +1,6 @@
 /data/volumes/*
 /data/radiance/*
+/data/models/*
 __pycache__/
 wandb/
 !.gitkeep
