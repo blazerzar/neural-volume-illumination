@@ -5,7 +5,7 @@
         "parameters": {
             "dir_coarse_res": {"values": [8, 16, 32]},
             "dir_fine_res": {"values": [64, 128, 256]},
-            "encoding": {"values": [false]},
+            "encoding": {"values": [true]},
             "feature_dim": {"min": 2, "max": 8},
             "hash_table_size": {"min": 6, "max": 24},
             "hidden_dim": {"values": [16, 32, 64, 128, 256]},

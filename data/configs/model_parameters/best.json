@@ -4,7 +4,7 @@
     "model_args": {
         "dir_coarse_res": 16,
         "dir_fine_res": 128,
-        "encoding": false,
+        "encoding": true,
         "feature_dim": 5,
         "hash_table_size": 16,
         "hidden_dim": 64,
