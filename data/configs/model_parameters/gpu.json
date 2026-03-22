@@ -1,0 +1,17 @@
+{
+    "epochs": 1,
+    "lr": 1e-2,
+    "model_args": {
+        "dir_coarse_res": 16,
+        "dir_fine_res": 64,
+        "encoding": true,
+        "feature_dim": 4,
+        "hash_table_size": 18,
+        "hidden_dim": 16,
+        "layers": 3,
+        "levels": 11,
+        "output": "clamped",
+        "pos_coarse_res": 8,
+        "pos_fine_res": 128
+    }
+}

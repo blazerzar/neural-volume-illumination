@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>WebGPU Inference</title>
+        <link rel="icon" href="data:image/png;base64,iVBORw0KGgo=" />
+        <style>
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            .container {
+                display: flex;
+                gap: 20px;
+                height: calc(100vh);
+                padding: 10px;
+            }
+            .right {
+                display: flex;
+                flex-direction: column;
+                flex: 1;
+                min-width: 200px;
+            }
+            #logs {
+                background: #f5f5f5;
+                border: 1px solid #ccc;
+                padding: 10px;
+                flex: 1;
+                overflow-y: auto;
+                overflow-x: auto;
+                font-family: monospace;
+                font-size: 12px;
+                white-space: pre-wrap;
+            }
+            .canvas-container {
+                display: flex;
+                gap: 20px;
+            }
+            .canvas-wrapper {
+                position: relative;
+            }
+            .fps-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                background: rgba(0, 0, 0, 0.7);
+                color: #0f0;
+                font-family: monospace;
+                font-size: 12px;
+                padding: 4px 8px;
+                pointer-events: none;
+                z-index: 1;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="container">
+            <div class="left">
+                <div>
+                    <label for="zip-file">Ground truth data:</label>
+                    <input type="file" id="zip-file" accept=".zip" />
+                </div>
+                <div style="padding-top: 5px">
+                    <label for="zip-file">Model weights:</label>
+                    <input type="file" id="model-file" accept=".zip" />
+                </div>
+                <div style="padding-top: 5px">
+                    <label for="workgroup-size">Workgroup size</label>
+                    <input type="number" id="workgroup-size" min="4" size="4" />
+                    <label for="pixels-thread">Pixels per thread</label>
+                    <input type="number" id="pixels-thread" min="1" size="4" />
+                    <label for="frames-limit">Frames limit</label>
+                    <input type="number" id="frames-limit" min="10" size="4" />
+                </div>
+                <div style="padding-top: 10px">
+                    <button id="load-button">Load</button>
+                    <button id="run-button">Run</button>
+                </div>
+
+                <div class="canvas-container">
+                    <div class="canvas-wrapper">
+                        <h3>Original</h3>
+                        <canvas id="original" width="512" height="512"></canvas>
+                    </div>
+                    <div>
+                        <h3>Prediction</h3>
+                        <div class="canvas-wrapper">
+                            <canvas
+                                id="predicted"
+                                width="512"
+                                height="512"
+                            ></canvas>
+                            <div id="fps-overlay" class="fps-overlay">
+                                FPS: / <br />
+                                Time: /
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right">
+                <h3>Logs</h3>
+                <div id="logs"></div>
+            </div>
+        </div>
+
+        <script type="importmap">
+            {
+                "imports": {
+                    "jszip": "https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm"
+                }
+            }
+        </script>
+        <script type="module" src="main.js"></script>
+        <script type="module" src="radiance_field_network.js"></script>
+        <script type="module" src="model_utils.js"></script>
+    </body>
+</html>

@@ -1,0 +1,19 @@
+{
+    "epochs": {"values": [1]},
+    "lr": {"values": [1e-1, 1e-2, 1e-3, 1e-4, 1e-5]},
+    "model_args": {
+        "parameters": {
+            "dir_coarse_res": {"values": [8, 16, 32]},
+            "dir_fine_res": {"values": [64, 128, 256]},
+            "encoding": {"values": [true]},
+            "feature_dim": {"values": [2, 4]},
+            "hash_table_size": {"min": 16, "max": 28},
+            "hidden_dim": {"values": [8, 16, 32]},
+            "layers": {"values": [2, 3, 4]},
+            "levels": {"min": 4, "max": 22},
+            "output": {"values": ["clamped"]},
+            "pos_coarse_res": {"values": [8, 16, 32]},
+            "pos_fine_res": {"values": [128, 256, 512]}
+        }
+    }
+}

@@ -126,7 +126,9 @@ class MultiresolutionHashEncoding(nn.Module):
         )
 
         self.register_buffer(
-            'offsets', torch.cartesian_prod(*[torch.tensor([0, 1])] * self.d)
+            'offsets',
+            torch.cartesian_prod(*[torch.tensor([0, 1])] * self.d),
+            persistent=False,
         )
 
         # Initialize using He initialization
@@ -142,12 +144,12 @@ class MultiresolutionHashEncoding(nn.Module):
             [1, 2654435761, 805459861], device=x.device, dtype=x.dtype
         )[: self.d]
 
-        return torch.sum(x * primes, dim=-1) % self.T
+        return torch.sum(x * primes, dim=-1).long() % self.T
 
     def _one_one_mapping(self, x, N_l):
         res = N_l + 1
         powers = res ** torch.arange(self.d, device=x.device).flip(0)
-        return (x * powers).sum(dim=-1)
+        return (x * powers).sum(dim=-1).long()
 
     def _hash_fn(self, corners, N_l, one_one_mapping):
         return (
@@ -172,7 +174,7 @@ class MultiresolutionHashEncoding(nn.Module):
 
             # 1. Hashing (finer levels) of 1:1 mapping (coarser levels)
             # shape: (batch_size, 2^d)
-            indices = self._hash_fn(corners.long(), N_l, one_one)
+            indices = self._hash_fn(corners, N_l, one_one)
 
             # 2. Lookup
             # shape: (batch_size, 2^d, F)
