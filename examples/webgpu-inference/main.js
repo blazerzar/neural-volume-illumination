@@ -41,6 +41,8 @@ async function main() {
     const predictedCanvas = document.getElementById("predicted");
     const framesLimitInput = document.getElementById("frames-limit");
     const fpsOverlayElement = document.getElementById("fps-overlay");
+    const frameTimePlotCanvas = document.getElementById("frame-time-plot");
+    const repeatInput = document.getElementById("repeat");
 
     runButton.disabled = true;
 
@@ -102,6 +104,7 @@ async function main() {
 
         let frame = 0;
         const frameTimes = [];
+        fpsOverlayElement.style.display = "block";
         const render = () => {
             const { samplePoints, radiance } = frames[frame];
             const imageData = createImage(radiance, resolution);
@@ -123,10 +126,15 @@ async function main() {
                 } else {
                     fpsOverlayElement.innerText = "FPS: /\nTime: /";
                 }
+
+                drawFrameTimePlot(frameTimePlotCanvas, frameTimes);
             });
             model.renderToCanvas(canvasRenderer);
 
             frame++;
+            if (repeatInput.checked) {
+                frame = frame % frames.length;
+            }
             if (frame < frames.length) {
                 requestAnimationFrame(render);
             } else {
@@ -234,4 +242,65 @@ function displayFrame(canvas, imageData, resolution) {
     canvas.width = resolution;
     canvas.height = resolution;
     ctx.putImageData(imageData, 0, 0);
+}
+
+function drawFrameTimePlot(canvas, frameTimes) {
+    // Match canvas internal resolution to display size
+    const rect = canvas.getBoundingClientRect();
+    if (canvas.width !== rect.width || canvas.height !== rect.height) {
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+    }
+
+    const ctx = canvas.getContext("2d");
+    const width = canvas.width;
+    const height = canvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+
+    if (frameTimes.length < 2) return;
+
+    const samples = frameTimes.slice(20);
+    if (samples.length < 2) return;
+
+    const times = samples.map((t) => t.time);
+    const maxTime = Math.max(...times, 33.33);
+
+    // Draw background
+    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    ctx.fillRect(0, 0, width, height);
+
+    // Draw 60fps grid line (16.67ms)
+    const y60fps = height - (16.67 / maxTime) * height;
+    ctx.strokeStyle = "rgba(0, 255, 0, 0.4)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, y60fps);
+    ctx.lineTo(width, y60fps);
+    ctx.stroke();
+
+    // Draw 30fps grid line (33.33ms)
+    if (maxTime > 33.33) {
+        const y30fps = height - (33.33 / maxTime) * height;
+        ctx.strokeStyle = "rgba(255, 255, 0, 0.4)";
+        ctx.beginPath();
+        ctx.moveTo(0, y30fps);
+        ctx.lineTo(width, y30fps);
+        ctx.stroke();
+    }
+
+    // Draw frame time line
+    ctx.strokeStyle = "#0f0";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    samples.forEach((t, i) => {
+        const x = (i / (samples.length - 1)) * width;
+        const y = height - (t.time / maxTime) * height;
+        if (i === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
+    });
+    ctx.stroke();
 }
