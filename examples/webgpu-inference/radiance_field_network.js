@@ -87,6 +87,9 @@ export class RadianceFieldNetwork {
     }
 
     _initializeForwardPassBuffers() {
+        const L = this.modelArgs["levels"];
+        const F = this.modelArgs["feature_dim"];
+
         this.outputTexture = this.device.createTexture({
             label: "radiance field network output texture",
             size: [this.resolution, this.resolution],
@@ -96,6 +99,12 @@ export class RadianceFieldNetwork {
                 GPUTextureUsage.TEXTURE_BINDING,
         });
         this.outputView = this.outputTexture.createView();
+        this.embeddingsBuffer = this.device.createBuffer({
+            label: "radiance field network embeddings buffer",
+            // 2 ... position and direction, 4 ... f32 size
+            size: this.resolution * this.resolution * L * F * 2 * 4,
+            usage: GPUBufferUsage.STORAGE,
+        });
     }
 
     _createPrograms(shader) {
@@ -153,6 +162,8 @@ export class RadianceFieldNetwork {
             entries: [
                 { binding: 0, resource: { buffer: samplePoints } },
                 { binding: 1, resource: this.outputView },
+                { binding: 2, resource: { buffer: this.embeddingsBuffer } },
+                { binding: 3, resource: { buffer: this.embeddingsBuffer } },
             ],
         });
     }
@@ -191,6 +202,7 @@ export class RadianceFieldNetwork {
         this.posGridSizes.destroy();
         this.dirGridSizes.destroy();
         this.outputTexture.destroy();
+        this.embeddingsBuffer.destroy();
     }
 
     renderToCanvas(canvasRenderer) {

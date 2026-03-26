@@ -28,6 +28,9 @@ struct SamplePoint {
 @group(2) @binding(0) var<storage, read> samplePoints: array<SamplePoint>;
 @group(2) @binding(1) var output: texture_storage_2d<rgba32float, write>;
 
+@group(2) @binding(2) var<storage, read_write> embeddingsF32: array<f32>;
+@group(2) @binding(3) var<storage, read_write> embeddingsVec4: array<vec4f>;
+
 fn oneToOnePosition(corner: vec3f, gridSize: u32) -> u32 {
     let res = f32(gridSize + 1u);
     return u32(corner.x * res * res + corner.y * res + corner.z);
@@ -37,9 +40,7 @@ fn hashPosition(corner: vec3f, gridSize: u32) -> u32 {
     return u32(corner.x + corner.y * 2654435761 + corner.z * 805459861) % HASH_TABLE_SIZE;
 }
 
-fn encodePosition(
-    position: vec3f, output: ptr<function, array<f32, 1/* embedding size */>>,
-) {
+fn encodePosition(position: vec3f, baseOffset: u32) {
     var tableOffset = 0u;
 
     for (var level = 0u; level < LEVELS; level++) {
@@ -108,7 +109,7 @@ fn encodePosition(
             let embBRB = posTables[tableOffset + indexBRB * FEATURE_DIM + f];
             let embBRF = posTables[tableOffset + indexBRF * FEATURE_DIM + f];
             let value = embTLB * weightTLB + embTLF * weightTLF + embTRB * weightTRB + embTRF * weightTRF + embBLB * weightBLB + embBLF * weightBLF + embBRB * weightBRB + embBRF * weightBRF;
-            (*output)[offset + f] = value;
+            embeddingsF32[baseOffset + offset + f] = value;
         }
 
         tableOffset = tableOffset + tableSize * FEATURE_DIM;
@@ -124,9 +125,7 @@ fn hashDirection(corner: vec2f, gridSize: u32) -> u32 {
     return u32(corner.x + corner.y * 2654435761) % HASH_TABLE_SIZE;
 }
 
-fn encodeDirection(
-    direction: vec2f, output: ptr<function, array<f32, 1/* embedding size */>>
-) {
+fn encodeDirection(direction: vec2f, baseOffset: u32) {
     var tableOffset = 0u;
 
     for (var level = 0u; level < LEVELS; level++) {
@@ -171,16 +170,14 @@ fn encodeDirection(
             let embBL = dirTables[tableOffset + indexBL * FEATURE_DIM + f];
             let embBR = dirTables[tableOffset + indexBR * FEATURE_DIM + f];
             let value = embTL * weightTL + embTR * weightTR + embBL * weightBL + embBR * weightBR;
-            (*output)[offset + f] = value;
+            embeddingsF32[baseOffset + offset + f] = value;
         }
 
         tableOffset = tableOffset + tableSize * FEATURE_DIM;
     }
 }
 
-fn multiLayerPerceptron(
-    embeddings: ptr<function, array<vec4f, 2/* vec embedding size */>>
-) -> vec3f {
+fn multiLayerPerceptron(baseVecOffset: u32) -> vec3f {
     var intermediateEven: array<vec4f, 4>;
     var intermediateOdd: array<vec4f, 4>;
 
@@ -196,7 +193,7 @@ fn multiLayerPerceptron(
         for (var k = 0u; k < vecSize; k++) {
             for (var j = 0u; j < inputSize; j++) {
                 let w = fcWeights[(i * vecSize + k) * inputSize + j];
-                a[k] = a[k] + dot((*embeddings)[j], w,);
+                a[k] = a[k] + dot(embeddingsVec4[baseVecOffset + j], w,);
             }
         }
         intermediateEven[i] = max(a + fcBiases[i], vec4f(0));
@@ -249,7 +246,8 @@ fn forward(
 ) {
     var pixelIndex = globalId.x;
     let pixels = RESOLUTION * RESOLUTION;
-    let embeddingVecSize = LEVELS * FEATURE_DIM * 2 / 4;
+    let embeddingSize = LEVELS * FEATURE_DIM * 2;
+    let embeddingVecSize = embeddingSize / 4;
 
     while pixelIndex < pixels {
         let input = samplePoints[pixelIndex];
@@ -262,20 +260,13 @@ fn forward(
             continue;
         }
 
-        var embeddings: array<f32, 1/* embedding size */>;
-        encodePosition(input.pos, &embeddings);
-        encodeDirection(input.dir, &embeddings);
+        let baseOffset = pixelIndex * embeddingSize;
+        let baseVecOffset = pixelIndex * embeddingVecSize;
 
-        // Pack embeddings into array of vectors
-        var embeddingsVec: array<vec4f, 2/* vec embedding size */>;
-        for (var i = 0u; i < embeddingVecSize; i++) {
-            embeddingsVec[i].x = embeddings[i * 4 + 0];
-            embeddingsVec[i].y = embeddings[i * 4 + 1];
-            embeddingsVec[i].z = embeddings[i * 4 + 2];
-            embeddingsVec[i].w = embeddings[i * 4 + 3];
-        }
+        encodePosition(input.pos, baseOffset);
+        encodeDirection(input.dir, baseOffset);
 
-        let color = multiLayerPerceptron(&embeddingsVec);
+        let color = multiLayerPerceptron(baseVecOffset);
 
         textureStore(output, vec2u(x, y), vec4f(color, 1.0));
         pixelIndex = pixelIndex + num_workgroups.x;
