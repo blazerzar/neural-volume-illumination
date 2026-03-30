@@ -104,6 +104,8 @@ async function main() {
                     frameTimePlotCanvas,
                     loopInput,
                     resolve,
+                    i,
+                    numRepeats,
                 );
             });
             avgFrameTimes.push(avgFrameTime);
@@ -290,6 +292,8 @@ async function runHandler(
     frameTimePlotCanvas,
     loopInput,
     resolve,
+    currentRepeat,
+    repeats,
 ) {
     const model = await loadModel(modelFile, device, resolution);
     log(`Loaded model with ${model.numberOfParameters()} parameters`);
@@ -321,6 +325,10 @@ async function runHandler(
                 fpsOverlayElement.innerText = `FPS: ${fps}\nTime: ${frameTime}`;
             } else {
                 fpsOverlayElement.innerText = "FPS: /\nTime: /";
+            }
+
+            if (repeats > 1) {
+                fpsOverlayElement.innerText += `\nRepeat: ${currentRepeat + 1}/${repeats}`;
             }
 
             drawFrameTimePlot(frameTimePlotCanvas, frameTimes);
