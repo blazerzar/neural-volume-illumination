@@ -56,36 +56,17 @@ fn encodePosition(position: vec3f, baseOffset: u32) {
         let cornerBRF = cornerTLB + vec3f(1, 1, 1);
 
         var tableSize = (gridSize + 1) * (gridSize + 1) * (gridSize + 1);
+        let useOneToOne = tableSize <= HASH_TABLE_SIZE;
 
-        var indexTLB: u32;
-        var indexTLF: u32;
-        var indexTRB: u32;
-        var indexTRF: u32;
-        var indexBLB: u32;
-        var indexBLF: u32;
-        var indexBRB: u32;
-        var indexBRF: u32;
-        if tableSize <= HASH_TABLE_SIZE {
-            indexTLB = oneToOnePosition(cornerTLB, gridSize);
-            indexTLF = oneToOnePosition(cornerTLF, gridSize);
-            indexTRB = oneToOnePosition(cornerTRB, gridSize);
-            indexTRF = oneToOnePosition(cornerTRF, gridSize);
-            indexBLB = oneToOnePosition(cornerBLB, gridSize);
-            indexBLF = oneToOnePosition(cornerBLF, gridSize);
-            indexBRB = oneToOnePosition(cornerBRB, gridSize);
-            indexBRF = oneToOnePosition(cornerBRF, gridSize);
-        } else {
-            indexTLB = hashPosition(cornerTLB, gridSize);
-            indexTLF = hashPosition(cornerTLF, gridSize);
-            indexTRB = hashPosition(cornerTRB, gridSize);
-            indexTRF = hashPosition(cornerTRF, gridSize);
-            indexBLB = hashPosition(cornerBLB, gridSize);
-            indexBLF = hashPosition(cornerBLF, gridSize);
-            indexBRB = hashPosition(cornerBRB, gridSize);
-            indexBRF = hashPosition(cornerBRF, gridSize);
-
-            tableSize = HASH_TABLE_SIZE;
-        }
+        let indexTLB = select(hashPosition(cornerTLB, gridSize), oneToOnePosition(cornerTLB, gridSize), useOneToOne);
+        let indexTLF = select(hashPosition(cornerTLF, gridSize), oneToOnePosition(cornerTLF, gridSize), useOneToOne);
+        let indexTRB = select(hashPosition(cornerTRB, gridSize), oneToOnePosition(cornerTRB, gridSize), useOneToOne);
+        let indexTRF = select(hashPosition(cornerTRF, gridSize), oneToOnePosition(cornerTRF, gridSize), useOneToOne);
+        let indexBLB = select(hashPosition(cornerBLB, gridSize), oneToOnePosition(cornerBLB, gridSize), useOneToOne);
+        let indexBLF = select(hashPosition(cornerBLF, gridSize), oneToOnePosition(cornerBLF, gridSize), useOneToOne);
+        let indexBRB = select(hashPosition(cornerBRB, gridSize), oneToOnePosition(cornerBRB, gridSize), useOneToOne);
+        let indexBRF = select(hashPosition(cornerBRF, gridSize), oneToOnePosition(cornerBRF, gridSize), useOneToOne);
+        tableSize = select(HASH_TABLE_SIZE, tableSize, useOneToOne);
 
         let w = position * f32(gridSize) - vec3f(cornerTLB);
 
@@ -137,24 +118,13 @@ fn encodeDirection(direction: vec2f, baseOffset: u32) {
         let cornerBR = cornerTL + vec2f(1, 1);
 
         var tableSize = (gridSize + 1) * (gridSize + 1);
+        let useOneToOne = tableSize <= HASH_TABLE_SIZE;
 
-        var indexTL: u32;
-        var indexTR: u32;
-        var indexBL: u32;
-        var indexBR: u32;
-        if tableSize <= HASH_TABLE_SIZE {
-            indexTL = oneToOneDirection(cornerTL, gridSize);
-            indexTR = oneToOneDirection(cornerTR, gridSize);
-            indexBL = oneToOneDirection(cornerBL, gridSize);
-            indexBR = oneToOneDirection(cornerBR, gridSize);
-        } else {
-            indexTL = hashDirection(cornerTL, gridSize);
-            indexTR = hashDirection(cornerTR, gridSize);
-            indexBL = hashDirection(cornerBL, gridSize);
-            indexBR = hashDirection(cornerBR, gridSize);
-
-            tableSize = HASH_TABLE_SIZE;
-        }
+        let indexTL = select(hashDirection(cornerTL, gridSize), oneToOneDirection(cornerTL, gridSize), useOneToOne);
+        let indexTR = select(hashDirection(cornerTR, gridSize), oneToOneDirection(cornerTR, gridSize), useOneToOne);
+        let indexBL = select(hashDirection(cornerBL, gridSize), oneToOneDirection(cornerBL, gridSize), useOneToOne);
+        let indexBR = select(hashDirection(cornerBR, gridSize), oneToOneDirection(cornerBR, gridSize), useOneToOne);
+        tableSize = select(HASH_TABLE_SIZE, tableSize, useOneToOne);
 
         let w = direction * f32(gridSize) - vec2f(cornerTL);
 
