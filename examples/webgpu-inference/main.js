@@ -42,7 +42,8 @@ async function main() {
     const framesLimitInput = document.getElementById("frames-limit");
     const fpsOverlayElement = document.getElementById("fps-overlay");
     const frameTimePlotCanvas = document.getElementById("frame-time-plot");
-    const repeatInput = document.getElementById("repeat");
+    const loopInput = document.getElementById("loop");
+    const repeatsInput = document.getElementById("repeats");
 
     runButton.disabled = true;
 
@@ -53,6 +54,7 @@ async function main() {
         }
 
         loadButton.disabled = true;
+        runButton.disabled = true;
 
         for (const frame of frames) {
             frame.samplePoints.destroy();
@@ -87,70 +89,42 @@ async function main() {
         }
 
         runButton.disabled = true;
-
-        const model = await loadModel(
-            modelFileInput.files[0],
-            device,
-            resolution,
-        );
-        log(`Loaded model with ${model.numberOfParameters()} parameters`);
-
-        predictedCanvas.width = resolution;
-        predictedCanvas.height = resolution;
-        const canvasRenderer = await createCanvasRenderer(
-            device,
-            predictedCanvas,
-        );
-
-        let frame = 0;
-        const frameTimes = [];
-        fpsOverlayElement.style.display = "block";
-        const render = () => {
-            const { samplePoints, radiance } = frames[frame];
-            const imageData = createImage(radiance, resolution);
-            displayFrame(originalCanvas, imageData, resolution);
-
-            const start = performance.now();
-            model.forward(samplePoints, () => {
-                const now = performance.now();
-                const time = now - start;
-                frameTimes.push({ start, time });
-
-                const latest = frameTimes.filter((t) => now - t.start < 500);
-                const avg =
-                    latest.reduce((acc, t) => acc + t.time, 0) / latest.length;
-                if (avg > 0) {
-                    const frameTime = `${avg.toFixed(1)} ms`;
-                    const fps = (1000 / avg).toFixed(1);
-                    fpsOverlayElement.innerText = `FPS: ${fps}\nTime: ${frameTime}`;
-                } else {
-                    fpsOverlayElement.innerText = "FPS: /\nTime: /";
-                }
-
-                drawFrameTimePlot(frameTimePlotCanvas, frameTimes);
+        const numRepeats = parseInt(repeatsInput.value);
+        const avgFrameTimes = [];
+        for (let i = 0; i < numRepeats; i++) {
+            const avgFrameTime = await new Promise((resolve) => {
+                runHandler(
+                    modelFileInput.files[0],
+                    originalCanvas,
+                    predictedCanvas,
+                    device,
+                    resolution,
+                    frames,
+                    fpsOverlayElement,
+                    frameTimePlotCanvas,
+                    loopInput,
+                    resolve,
+                );
             });
-            model.renderToCanvas(canvasRenderer);
+            avgFrameTimes.push(avgFrameTime);
+        }
 
-            frame++;
-            if (repeatInput.checked) {
-                frame = frame % frames.length;
-            }
-            if (frame < frames.length) {
-                requestAnimationFrame(render);
-            } else {
-                model.destroyBuffers();
-                runButton.disabled = false;
+        if (numRepeats > 1) {
+            const n = avgFrameTimes.length;
+            const avg = avgFrameTimes.reduce((a, b) => a + b, 0) / n;
+            const variance =
+                avgFrameTimes.reduce(
+                    (acc, t) => acc + Math.pow(t - avg, 2),
+                    0,
+                ) / n;
+            const std = Math.sqrt(variance);
+            log(
+                `Overall avg. frame time: ${avg.toFixed(2)} ms ` +
+                    `(±${std.toFixed(2)} ms)`,
+            );
+        }
 
-                log("Finished inference for all frames");
-
-                const times = frameTimes.map((t) => t.time);
-                const avg = times.reduce((acc, t) => acc + t, 0) / times.length;
-                log(`Avg. frame time: ${avg.toFixed(2)} ms`);
-                log(`Min. frame time: ${Math.min(...times)} ms`);
-                log(`Max. frame time: ${Math.max(...times)} ms`);
-            }
-        };
-        render();
+        runButton.disabled = false;
     };
 }
 
@@ -303,4 +277,74 @@ function drawFrameTimePlot(canvas, frameTimes) {
         }
     });
     ctx.stroke();
+}
+
+async function runHandler(
+    modelFile,
+    originalCanvas,
+    predictedCanvas,
+    device,
+    resolution,
+    frames,
+    fpsOverlayElement,
+    frameTimePlotCanvas,
+    loopInput,
+    resolve,
+) {
+    const model = await loadModel(modelFile, device, resolution);
+    log(`Loaded model with ${model.numberOfParameters()} parameters`);
+
+    predictedCanvas.width = resolution;
+    predictedCanvas.height = resolution;
+    const canvasRenderer = await createCanvasRenderer(device, predictedCanvas);
+
+    let frame = 0;
+    const frameTimes = [];
+    fpsOverlayElement.style.display = "block";
+    const render = () => {
+        const { samplePoints, radiance } = frames[frame];
+        const imageData = createImage(radiance, resolution);
+        displayFrame(originalCanvas, imageData, resolution);
+
+        const start = performance.now();
+        model.forward(samplePoints, () => {
+            const now = performance.now();
+            const time = now - start;
+            frameTimes.push({ start, time });
+
+            const latest = frameTimes.filter((t) => now - t.start < 500);
+            const avg =
+                latest.reduce((acc, t) => acc + t.time, 0) / latest.length;
+            if (avg > 0) {
+                const frameTime = `${avg.toFixed(1)} ms`;
+                const fps = (1000 / avg).toFixed(1);
+                fpsOverlayElement.innerText = `FPS: ${fps}\nTime: ${frameTime}`;
+            } else {
+                fpsOverlayElement.innerText = "FPS: /\nTime: /";
+            }
+
+            drawFrameTimePlot(frameTimePlotCanvas, frameTimes);
+        });
+        model.renderToCanvas(canvasRenderer);
+
+        frame++;
+        if (loopInput.checked) {
+            frame = frame % frames.length;
+        }
+        if (frame < frames.length) {
+            requestAnimationFrame(render);
+        } else {
+            model.destroyBuffers();
+            log("Finished inference for all frames");
+
+            const times = frameTimes.map((t) => t.time);
+            const avg = times.reduce((acc, t) => acc + t, 0) / times.length;
+            log(`Avg. frame time: ${avg.toFixed(2)} ms`);
+            log(`Min. frame time: ${Math.min(...times)} ms`);
+            log(`Max. frame time: ${Math.max(...times)} ms`);
+
+            resolve(avg);
+        }
+    };
+    render();
 }
