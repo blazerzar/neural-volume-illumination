@@ -39,6 +39,17 @@ export class RadianceFieldNetwork {
         const T = 2 ** this.modelArgs["hash_table_size"];
         const F = this.modelArgs["feature_dim"];
 
+        const posGridSizesArray = createGridSizes(
+            this.modelArgs["pos_coarse_res"],
+            this.modelArgs["pos_fine_res"],
+            L,
+        );
+        const dirGridSizesArray = createGridSizes(
+            this.modelArgs["dir_coarse_res"],
+            this.modelArgs["dir_fine_res"],
+            L,
+        );
+
         this.constants = {
             ...getComputeConfig(),
             RESOLUTION: this.resolution,
@@ -47,6 +58,8 @@ export class RadianceFieldNetwork {
             FEATURE_DIM: F,
             LAYERS: this.modelArgs["layers"],
             HIDDEN_DIM: this.modelArgs["hidden_dim"],
+            POS_FIRST_HASH_LEVEL: findFirstHashLevel(posGridSizesArray, T, 3),
+            DIR_FIRST_HASH_LEVEL: findFirstHashLevel(dirGridSizesArray, T, 2),
         };
 
         this.posGridSizes = this.device.createBuffer({
@@ -57,15 +70,7 @@ export class RadianceFieldNetwork {
                 GPUBufferUsage.UNIFORM |
                 GPUBufferUsage.COPY_DST,
         });
-        this.device.queue.writeBuffer(
-            this.posGridSizes,
-            0,
-            createGridSizes(
-                this.modelArgs["pos_coarse_res"],
-                this.modelArgs["pos_fine_res"],
-                L,
-            ),
-        );
+        this.device.queue.writeBuffer(this.posGridSizes, 0, posGridSizesArray);
 
         this.dirGridSizes = this.device.createBuffer({
             label: "radiance field network direction grid sizes",
@@ -75,14 +80,47 @@ export class RadianceFieldNetwork {
                 GPUBufferUsage.UNIFORM |
                 GPUBufferUsage.COPY_DST,
         });
+        this.device.queue.writeBuffer(this.dirGridSizes, 0, dirGridSizesArray);
+
+        const posTableOffsetsArray = createTableOffsets(
+            posGridSizesArray,
+            T,
+            this.constants["POS_FIRST_HASH_LEVEL"],
+            3,
+        );
+        const dirTableOffsetsArray = createTableOffsets(
+            dirGridSizesArray,
+            T,
+            this.constants["DIR_FIRST_HASH_LEVEL"],
+            2,
+        );
+
+        this.posTableOffsets = this.device.createBuffer({
+            label: "radiance field network position table offsets",
+            size: L * 4,
+            usage:
+                GPUBufferUsage.STORAGE |
+                GPUBufferUsage.UNIFORM |
+                GPUBufferUsage.COPY_DST,
+        });
         this.device.queue.writeBuffer(
-            this.dirGridSizes,
+            this.posTableOffsets,
             0,
-            createGridSizes(
-                this.modelArgs["dir_coarse_res"],
-                this.modelArgs["dir_fine_res"],
-                L,
-            ),
+            posTableOffsetsArray,
+        );
+
+        this.dirTableOffsets = this.device.createBuffer({
+            label: "radiance field network direction table offsets",
+            size: L * 4,
+            usage:
+                GPUBufferUsage.STORAGE |
+                GPUBufferUsage.UNIFORM |
+                GPUBufferUsage.COPY_DST,
+        });
+        this.device.queue.writeBuffer(
+            this.dirTableOffsets,
+            0,
+            dirTableOffsetsArray,
         );
     }
 
@@ -128,6 +166,8 @@ export class RadianceFieldNetwork {
             entries: [
                 { binding: 0, resource: { buffer: this.posGridSizes } },
                 { binding: 1, resource: { buffer: this.dirGridSizes } },
+                { binding: 2, resource: { buffer: this.posTableOffsets } },
+                { binding: 3, resource: { buffer: this.dirTableOffsets } },
             ],
         });
 
@@ -163,7 +203,6 @@ export class RadianceFieldNetwork {
                 { binding: 0, resource: { buffer: samplePoints } },
                 { binding: 1, resource: this.outputView },
                 { binding: 2, resource: { buffer: this.embeddingsBuffer } },
-                { binding: 3, resource: { buffer: this.embeddingsBuffer } },
             ],
         });
     }
@@ -201,6 +240,8 @@ export class RadianceFieldNetwork {
         this.fcBiases.destroy();
         this.posGridSizes.destroy();
         this.dirGridSizes.destroy();
+        this.posTableOffsets.destroy();
+        this.dirTableOffsets.destroy();
         this.outputTexture.destroy();
         this.embeddingsBuffer.destroy();
     }
@@ -238,6 +279,38 @@ function createGridSizes(coarseRes, fineRes, levels) {
         grids[i] = Math.floor(coarseRes * b ** i);
     }
     return grids;
+}
+
+function findFirstHashLevel(gridSizes, hashTableSize, dimensions) {
+    for (let i = 0; i < gridSizes.length; i++) {
+        const gridSize = gridSizes[i];
+        const tableSize = Math.pow(gridSize + 1, dimensions);
+        if (tableSize > hashTableSize) {
+            return i;
+        }
+    }
+    return gridSizes.length;
+}
+
+function createTableOffsets(
+    gridSizes,
+    hashTableSize,
+    firstHashLevel,
+    dimensions,
+) {
+    const offsets = new Uint32Array(gridSizes.length);
+    let offset = 0;
+    for (let i = 0; i < gridSizes.length; i++) {
+        offsets[i] = offset;
+        if (i < firstHashLevel) {
+            // One-to-one indexing: table size is (gridSize + 1)^dimensions
+            offset += Math.pow(gridSizes[i] + 1, dimensions);
+        } else {
+            // Hash indexing: table size is hashTableSize
+            offset += hashTableSize;
+        }
+    }
+    return offsets;
 }
 
 function getComputeConfig() {

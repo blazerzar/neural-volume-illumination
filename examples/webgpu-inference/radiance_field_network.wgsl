@@ -6,14 +6,18 @@ override HASH_TABLE_SIZE: u32;  // T
 override FEATURE_DIM: u32;      // F
 override LAYERS: u32;
 override HIDDEN_DIM: u32;
+override POS_FIRST_HASH_LEVEL: u32;
+override DIR_FIRST_HASH_LEVEL: u32;
 
 // Uniforms
 @group(0) @binding(0) var<storage, read> posGridSizes: array<u32>;  // N_l
 @group(0) @binding(1) var<storage, read> dirGridSizes: array<u32>;  // N_l
+@group(0) @binding(2) var<storage, read> posTableOffsets: array<u32>;
+@group(0) @binding(3) var<storage, read> dirTableOffsets: array<u32>;
 
-// Position and direciton encoding tables
-@group(1) @binding(0) var<storage, read> posTables: array<f32>;
-@group(1) @binding(1) var<storage, read> dirTables: array<f32>;
+// Position and direction encoding tables (F=4, so each entry is vec4f)
+@group(1) @binding(0) var<storage, read> posTables: array<vec4f>;
+@group(1) @binding(1) var<storage, read> dirTables: array<vec4f>;
 
 // FC layers weights and biases
 @group(1) @binding(2) var<storage, read> fcWeights: array<vec4f>;
@@ -28,23 +32,12 @@ struct SamplePoint {
 @group(2) @binding(0) var<storage, read> samplePoints: array<SamplePoint>;
 @group(2) @binding(1) var output: texture_storage_2d<rgba32float, write>;
 
-@group(2) @binding(2) var<storage, read_write> embeddingsF32: array<f32>;
-@group(2) @binding(3) var<storage, read_write> embeddingsVec4: array<vec4f>;
+@group(2) @binding(2) var<storage, read_write> embeddingsVec4: array<vec4f>;
 
-fn oneToOnePosition(corner: vec3f, gridSize: u32) -> u32 {
-    let res = f32(gridSize + 1u);
-    return u32(corner.x * res * res + corner.y * res + corner.z);
-}
-
-fn hashPosition(corner: vec3f, gridSize: u32) -> u32 {
-    return u32(corner.x + corner.y * 2654435761 + corner.z * 805459861) % HASH_TABLE_SIZE;
-}
-
-fn encodePosition(position: vec3f, baseOffset: u32) {
-    var tableOffset = 0u;
-
-    for (var level = 0u; level < LEVELS; level++) {
+fn encodePosition(position: vec3f, baseVecOffset: u32) {
+    for (var level = 0u; level < POS_FIRST_HASH_LEVEL; level++) {
         let gridSize = posGridSizes[level];
+        let tableOffset = posTableOffsets[level];
 
         let cornerTLB = floor(position * f32(gridSize));
         let cornerTLF = cornerTLB + vec3f(0, 0, 1);
@@ -55,18 +48,15 @@ fn encodePosition(position: vec3f, baseOffset: u32) {
         let cornerBRB = cornerTLB + vec3f(1, 1, 0);
         let cornerBRF = cornerTLB + vec3f(1, 1, 1);
 
-        var tableSize = (gridSize + 1) * (gridSize + 1) * (gridSize + 1);
-        let useOneToOne = tableSize <= HASH_TABLE_SIZE;
-
-        let indexTLB = select(hashPosition(cornerTLB, gridSize), oneToOnePosition(cornerTLB, gridSize), useOneToOne);
-        let indexTLF = select(hashPosition(cornerTLF, gridSize), oneToOnePosition(cornerTLF, gridSize), useOneToOne);
-        let indexTRB = select(hashPosition(cornerTRB, gridSize), oneToOnePosition(cornerTRB, gridSize), useOneToOne);
-        let indexTRF = select(hashPosition(cornerTRF, gridSize), oneToOnePosition(cornerTRF, gridSize), useOneToOne);
-        let indexBLB = select(hashPosition(cornerBLB, gridSize), oneToOnePosition(cornerBLB, gridSize), useOneToOne);
-        let indexBLF = select(hashPosition(cornerBLF, gridSize), oneToOnePosition(cornerBLF, gridSize), useOneToOne);
-        let indexBRB = select(hashPosition(cornerBRB, gridSize), oneToOnePosition(cornerBRB, gridSize), useOneToOne);
-        let indexBRF = select(hashPosition(cornerBRF, gridSize), oneToOnePosition(cornerBRF, gridSize), useOneToOne);
-        tableSize = select(HASH_TABLE_SIZE, tableSize, useOneToOne);
+        let res = f32(gridSize + 1u);
+        let indexTLB = u32(cornerTLB.x * res * res + cornerTLB.y * res + cornerTLB.z);
+        let indexTLF = u32(cornerTLF.x * res * res + cornerTLF.y * res + cornerTLF.z);
+        let indexTRB = u32(cornerTRB.x * res * res + cornerTRB.y * res + cornerTRB.z);
+        let indexTRF = u32(cornerTRF.x * res * res + cornerTRF.y * res + cornerTRF.z);
+        let indexBLB = u32(cornerBLB.x * res * res + cornerBLB.y * res + cornerBLB.z);
+        let indexBLF = u32(cornerBLF.x * res * res + cornerBLF.y * res + cornerBLF.z);
+        let indexBRB = u32(cornerBRB.x * res * res + cornerBRB.y * res + cornerBRB.z);
+        let indexBRF = u32(cornerBRF.x * res * res + cornerBRF.y * res + cornerBRF.z);
 
         let w = position * f32(gridSize) - vec3f(cornerTLB);
 
@@ -79,52 +69,79 @@ fn encodePosition(position: vec3f, baseOffset: u32) {
         let weightBRB = w.x * w.y * (1 - w.z);              // (1,1,0)
         let weightBRF = w.x * w.y * w.z;                    // (1,1,1)
 
-        let offset = level * FEATURE_DIM;
-        for (var f = 0u; f < FEATURE_DIM; f++) {
-            let embTLB = posTables[tableOffset + indexTLB * FEATURE_DIM + f];
-            let embTLF = posTables[tableOffset + indexTLF * FEATURE_DIM + f];
-            let embTRB = posTables[tableOffset + indexTRB * FEATURE_DIM + f];
-            let embTRF = posTables[tableOffset + indexTRF * FEATURE_DIM + f];
-            let embBLB = posTables[tableOffset + indexBLB * FEATURE_DIM + f];
-            let embBLF = posTables[tableOffset + indexBLF * FEATURE_DIM + f];
-            let embBRB = posTables[tableOffset + indexBRB * FEATURE_DIM + f];
-            let embBRF = posTables[tableOffset + indexBRF * FEATURE_DIM + f];
-            let value = embTLB * weightTLB + embTLF * weightTLF + embTRB * weightTRB + embTRF * weightTRF + embBLB * weightBLB + embBLF * weightBLF + embBRB * weightBRB + embBRF * weightBRF;
-            embeddingsF32[baseOffset + offset + f] = value;
-        }
+        let embTLB = posTables[tableOffset + indexTLB];
+        let embTLF = posTables[tableOffset + indexTLF];
+        let embTRB = posTables[tableOffset + indexTRB];
+        let embTRF = posTables[tableOffset + indexTRF];
+        let embBLB = posTables[tableOffset + indexBLB];
+        let embBLF = posTables[tableOffset + indexBLF];
+        let embBRB = posTables[tableOffset + indexBRB];
+        let embBRF = posTables[tableOffset + indexBRF];
+        let value = embTLB * weightTLB + embTLF * weightTLF + embTRB * weightTRB + embTRF * weightTRF + embBLB * weightBLB + embBLF * weightBLF + embBRB * weightBRB + embBRF * weightBRF;
+        embeddingsVec4[baseVecOffset + level] = value;
+    }
 
-        tableOffset = tableOffset + tableSize * FEATURE_DIM;
+    for (var level = POS_FIRST_HASH_LEVEL; level < LEVELS; level++) {
+        let gridSize = posGridSizes[level];
+        let tableOffset = posTableOffsets[level];
+
+        let cornerTLB = floor(position * f32(gridSize));
+        let cornerTLF = cornerTLB + vec3f(0, 0, 1);
+        let cornerTRB = cornerTLB + vec3f(0, 1, 0);
+        let cornerTRF = cornerTLB + vec3f(0, 1, 1);
+        let cornerBLB = cornerTLB + vec3f(1, 0, 0);
+        let cornerBLF = cornerTLB + vec3f(1, 0, 1);
+        let cornerBRB = cornerTLB + vec3f(1, 1, 0);
+        let cornerBRF = cornerTLB + vec3f(1, 1, 1);
+
+        let indexTLB = u32(cornerTLB.x + cornerTLB.y * 2654435761 + cornerTLB.z * 805459861) % HASH_TABLE_SIZE;
+        let indexTLF = u32(cornerTLF.x + cornerTLF.y * 2654435761 + cornerTLF.z * 805459861) % HASH_TABLE_SIZE;
+        let indexTRB = u32(cornerTRB.x + cornerTRB.y * 2654435761 + cornerTRB.z * 805459861) % HASH_TABLE_SIZE;
+        let indexTRF = u32(cornerTRF.x + cornerTRF.y * 2654435761 + cornerTRF.z * 805459861) % HASH_TABLE_SIZE;
+        let indexBLB = u32(cornerBLB.x + cornerBLB.y * 2654435761 + cornerBLB.z * 805459861) % HASH_TABLE_SIZE;
+        let indexBLF = u32(cornerBLF.x + cornerBLF.y * 2654435761 + cornerBLF.z * 805459861) % HASH_TABLE_SIZE;
+        let indexBRB = u32(cornerBRB.x + cornerBRB.y * 2654435761 + cornerBRB.z * 805459861) % HASH_TABLE_SIZE;
+        let indexBRF = u32(cornerBRF.x + cornerBRF.y * 2654435761 + cornerBRF.z * 805459861) % HASH_TABLE_SIZE;
+
+        let w = position * f32(gridSize) - vec3f(cornerTLB);
+
+        let weightTLB = (1 - w.x) * (1 - w.y) * (1 - w.z);  // (0,0,0)
+        let weightTLF = (1 - w.x) * (1 - w.y) * w.z;        // (0,0,1)
+        let weightTRB = (1 - w.x) * w.y * (1 - w.z);        // (0,1,0)
+        let weightTRF = (1 - w.x) * w.y * w.z;              // (0,1,1)
+        let weightBLB = w.x * (1 - w.y) * (1 - w.z);        // (1,0,0)
+        let weightBLF = w.x * (1 - w.y) * w.z;              // (1,0,1)
+        let weightBRB = w.x * w.y * (1 - w.z);              // (1,1,0)
+        let weightBRF = w.x * w.y * w.z;                    // (1,1,1)
+
+        let embTLB = posTables[tableOffset + indexTLB];
+        let embTLF = posTables[tableOffset + indexTLF];
+        let embTRB = posTables[tableOffset + indexTRB];
+        let embTRF = posTables[tableOffset + indexTRF];
+        let embBLB = posTables[tableOffset + indexBLB];
+        let embBLF = posTables[tableOffset + indexBLF];
+        let embBRB = posTables[tableOffset + indexBRB];
+        let embBRF = posTables[tableOffset + indexBRF];
+        let value = embTLB * weightTLB + embTLF * weightTLF + embTRB * weightTRB + embTRF * weightTRF + embBLB * weightBLB + embBLF * weightBLF + embBRB * weightBRB + embBRF * weightBRF;
+        embeddingsVec4[baseVecOffset + level] = value;
     }
 }
 
-fn oneToOneDirection(corner: vec2f, gridSize: u32) -> u32 {
-    let res = f32(gridSize + 1u);
-    return u32(corner.x * res + corner.y);
-}
-
-fn hashDirection(corner: vec2f, gridSize: u32) -> u32 {
-    return u32(corner.x + corner.y * 2654435761) % HASH_TABLE_SIZE;
-}
-
-fn encodeDirection(direction: vec2f, baseOffset: u32) {
-    var tableOffset = 0u;
-
-    for (var level = 0u; level < LEVELS; level++) {
+fn encodeDirection(direction: vec2f, baseVecOffset: u32) {
+    for (var level = 0u; level < DIR_FIRST_HASH_LEVEL; level++) {
         let gridSize = dirGridSizes[level];
+        let tableOffset = dirTableOffsets[level];
 
         let cornerTL = floor(direction * f32(gridSize));
         let cornerTR = cornerTL + vec2f(0, 1);
         let cornerBL = cornerTL + vec2f(1, 0);
         let cornerBR = cornerTL + vec2f(1, 1);
 
-        var tableSize = (gridSize + 1) * (gridSize + 1);
-        let useOneToOne = tableSize <= HASH_TABLE_SIZE;
-
-        let indexTL = select(hashDirection(cornerTL, gridSize), oneToOneDirection(cornerTL, gridSize), useOneToOne);
-        let indexTR = select(hashDirection(cornerTR, gridSize), oneToOneDirection(cornerTR, gridSize), useOneToOne);
-        let indexBL = select(hashDirection(cornerBL, gridSize), oneToOneDirection(cornerBL, gridSize), useOneToOne);
-        let indexBR = select(hashDirection(cornerBR, gridSize), oneToOneDirection(cornerBR, gridSize), useOneToOne);
-        tableSize = select(HASH_TABLE_SIZE, tableSize, useOneToOne);
+        let res = f32(gridSize + 1u);
+        let indexTL = u32(cornerTL.x * res + cornerTL.y);
+        let indexTR = u32(cornerTR.x * res + cornerTR.y);
+        let indexBL = u32(cornerBL.x * res + cornerBL.y);
+        let indexBR = u32(cornerBR.x * res + cornerBR.y);
 
         let w = direction * f32(gridSize) - vec2f(cornerTL);
 
@@ -133,17 +150,41 @@ fn encodeDirection(direction: vec2f, baseOffset: u32) {
         let weightBL = w.x * (1 - w.y);        // (1,0)
         let weightBR = w.x * w.y;              // (1,1)
 
-        let offset = (LEVELS + level) * FEATURE_DIM;
-        for (var f = 0u; f < FEATURE_DIM; f++) {
-            let embTL = dirTables[tableOffset + indexTL * FEATURE_DIM + f];
-            let embTR = dirTables[tableOffset + indexTR * FEATURE_DIM + f];
-            let embBL = dirTables[tableOffset + indexBL * FEATURE_DIM + f];
-            let embBR = dirTables[tableOffset + indexBR * FEATURE_DIM + f];
-            let value = embTL * weightTL + embTR * weightTR + embBL * weightBL + embBR * weightBR;
-            embeddingsF32[baseOffset + offset + f] = value;
-        }
+        let embTL = dirTables[tableOffset + indexTL];
+        let embTR = dirTables[tableOffset + indexTR];
+        let embBL = dirTables[tableOffset + indexBL];
+        let embBR = dirTables[tableOffset + indexBR];
+        let value = embTL * weightTL + embTR * weightTR + embBL * weightBL + embBR * weightBR;
+        embeddingsVec4[baseVecOffset + LEVELS + level] = value;
+    }
 
-        tableOffset = tableOffset + tableSize * FEATURE_DIM;
+    for (var level = DIR_FIRST_HASH_LEVEL; level < LEVELS; level++) {
+        let gridSize = dirGridSizes[level];
+        let tableOffset = dirTableOffsets[level];
+
+        let cornerTL = floor(direction * f32(gridSize));
+        let cornerTR = cornerTL + vec2f(0, 1);
+        let cornerBL = cornerTL + vec2f(1, 0);
+        let cornerBR = cornerTL + vec2f(1, 1);
+
+        let indexTL = u32(cornerTL.x + cornerTL.y * 2654435761) % HASH_TABLE_SIZE;
+        let indexTR = u32(cornerTR.x + cornerTR.y * 2654435761) % HASH_TABLE_SIZE;
+        let indexBL = u32(cornerBL.x + cornerBL.y * 2654435761) % HASH_TABLE_SIZE;
+        let indexBR = u32(cornerBR.x + cornerBR.y * 2654435761) % HASH_TABLE_SIZE;
+
+        let w = direction * f32(gridSize) - vec2f(cornerTL);
+
+        let weightTL = (1 - w.x) * (1 - w.y);  // (0,0)
+        let weightTR = (1 - w.x) * w.y;        // (0,1)
+        let weightBL = w.x * (1 - w.y);        // (1,0)
+        let weightBR = w.x * w.y;              // (1,1)
+
+        let embTL = dirTables[tableOffset + indexTL];
+        let embTR = dirTables[tableOffset + indexTR];
+        let embBL = dirTables[tableOffset + indexBL];
+        let embBR = dirTables[tableOffset + indexBR];
+        let value = embTL * weightTL + embTR * weightTR + embBL * weightBL + embBR * weightBR;
+        embeddingsVec4[baseVecOffset + LEVELS + level] = value;
     }
 }
 
@@ -216,8 +257,7 @@ fn forward(
 ) {
     var pixelIndex = globalId.x;
     let pixels = RESOLUTION * RESOLUTION;
-    let embeddingSize = LEVELS * FEATURE_DIM * 2;
-    let embeddingVecSize = embeddingSize / 4;
+    let embeddingVecSize = LEVELS * FEATURE_DIM * 2 / 4;
 
     while pixelIndex < pixels {
         let input = samplePoints[pixelIndex];
@@ -230,11 +270,10 @@ fn forward(
             continue;
         }
 
-        let baseOffset = pixelIndex * embeddingSize;
         let baseVecOffset = pixelIndex * embeddingVecSize;
 
-        encodePosition(input.pos, baseOffset);
-        encodeDirection(input.dir, baseOffset);
+        encodePosition(input.pos, baseVecOffset);
+        encodeDirection(input.dir, baseVecOffset);
 
         let color = multiLayerPerceptron(baseVecOffset);
 
