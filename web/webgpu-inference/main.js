@@ -19,7 +19,7 @@ async function main() {
     const adapter = await navigator.gpu?.requestAdapter();
     const device = await adapter?.requestDevice({
         requiredLimits: {
-            maxStorageBuffersPerShaderStage: 30,
+            maxStorageBuffersPerShaderStage: 16,
         },
     });
     if (!device) {
