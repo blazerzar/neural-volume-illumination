@@ -93,3 +93,38 @@ def create_image(values: torch.Tensor, mask: np.ndarray, resolution: int) -> np.
     indices = np.where(mask)[0]
     image_flat[indices] = values_cpu
     return image
+
+
+def export_state_dict(model, model_args, file_name=None, buffer=None):
+    """Export the model's state_dict as a zip file for browser inference.
+
+    Parameters:
+        - model: The PyTorch model to export.
+        - model_args: Dictionary of used model arguments
+        - file_name: The name of the output zip file.
+
+    Returns:
+
+    """
+    metadata = {'model_args': model_args}
+    dest = buffer if file_name is None else file_name
+
+    with zipfile.ZipFile(dest, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+        for name, tensor in model.state_dict().items():
+            t = tensor.detach().cpu().contiguous()
+            data = t.view(-1).numpy().tobytes()
+            name = name.replace('.', '_')
+            file = f'{name}.bin'
+
+            zf.writestr(file, data)
+
+            metadata[name] = {
+                'file': file,
+                'size': list(tensor.size()),
+                'dtype': str(tensor.dtype),
+                'num_elements': tensor.numel(),
+                'bytes_per_element': tensor.element_size(),
+                'total_bytes': tensor.numel() * tensor.element_size(),
+            }
+
+        zf.writestr('metadata.json', json.dumps(metadata, indent=4))

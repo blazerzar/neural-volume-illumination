@@ -10,6 +10,7 @@ Options:
 """
 
 import asyncio
+import io
 import json
 import logging
 import multiprocessing as mp
@@ -24,7 +25,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from radiance_field_network import RadianceFieldNetwork
-from utils import PIXEL_VALUES, create_image
+from utils import PIXEL_VALUES, create_image, export_state_dict
 from websockets.asyncio.server import serve
 from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 
@@ -69,7 +70,8 @@ async def handler(websocket):
     model_args = model_parameters['model_args']
     lr = model_parameters['lr']
     model, optimizer = create_model(model_args, lr, device)
-    await websocket.send(json.dumps({'type': 'model-created'}))
+    response = json.dumps({'type': 'model-created', 'model_args': model_args})
+    await websocket.send(response.encode('utf-8') + b'\0')
     logger.info('Model created')
 
     train_lock = asyncio.Lock()
@@ -84,7 +86,8 @@ async def handler(websocket):
             if msg_type == 'ping':
                 data = json.loads(message[null_separator + 1 :].decode('utf-8'))
                 logger.info('Ping received')
-                await websocket.send(json.dumps({'type': 'pong', 'time': data['time']}))
+                response = json.dumps({'type': 'pong', 'time': data['time']})
+                await websocket.send(response.encode('utf-8') + b'\0')
             elif msg_type == 'ground-truth':
                 if train_lock.locked():
                     logger.warning('Discarding ground truth: training in progress')
@@ -105,9 +108,16 @@ async def handler(websocket):
                 frame = 0
                 model, optimizer = create_model(model_args, lr, device)
                 logger.info('Model state reset')
-                await websocket.send(json.dumps({'type': 'model-reset'}))
+                response = json.dumps({'type': 'model-reset'})
+                await websocket.send(response.encode('utf-8') + b'\0')
             elif msg_type == 'model-request':
-                logger.info('Sending model to client')
+                buffer = io.BytesIO()
+                export_state_dict(model, model_args, buffer=buffer)
+                model_bytes = buffer.getvalue()
+                size_mb = len(model_bytes) / 1024 / 1024
+                response = json.dumps({'type': 'model-weights'})
+                await websocket.send(response.encode('utf-8') + b'\0' + model_bytes)
+                logger.info(f'Sending model ({size_mb:.2f} MB) to client')
         except (ConnectionClosedOK, ConnectionClosedError):
             logger.info('Client disconnected')
             break
@@ -122,7 +132,8 @@ async def train_and_respond(lock, model, optimizer, raw_data, websocket, frame):
             train_model, model, optimizer, *data
         )
         try:
-            await websocket.send(json.dumps({'type': 'metrics', 'val_loss': val_loss}))
+            response = json.dumps({'type': 'metrics', 'val_loss': val_loss})
+            await websocket.send(response.encode('utf-8') + b'\0')
             logger.info(
                 f'Frame: {frame}, '
                 f'parsing: {parsing:.2f} ns, '
