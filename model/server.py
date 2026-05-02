@@ -128,6 +128,10 @@ async def handler(websocket):
 async def train_and_respond(lock, model, optimizer, raw_data, websocket, frame):
     async with lock:
         *data, parsing = await asyncio.to_thread(parse_ground_truth, raw_data)
+        if not len(data[0]):
+            response = json.dumps({'type': 'metrics', 'val_loss': None})
+            await websocket.send(response.encode('utf-8') + b'\0')
+            return
         val_loss, training = await asyncio.to_thread(
             train_model, model, optimizer, *data
         )
