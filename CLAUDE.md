@@ -13,6 +13,8 @@ This is a master's thesis project for "Neural caching of dynamic volume illumina
 
 **IMPORTANT:** This project uses `nodemon` for automatic rebuilding during development. Changes to source files will be automatically built. Do NOT manually run build commands - nodemon handles this.
 
+Do not propose running build commands as verification in planning.
+
 ### VPT Framework
 
 ```bash
