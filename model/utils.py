@@ -10,22 +10,25 @@ PIXEL_VALUES = 8
 
 
 def read_ground_truth_zip(
-    file_path: str, verbose=False
-) -> tuple[list[np.ndarray], dict]:
+    file_path: str, verbose=False, include_transfer_function=False
+) -> tuple[list[np.ndarray], dict] | tuple[list[np.ndarray], dict, dict]:
     """Read the ground truth data from a zip file.
 
     Parameters:
         - file_path: Path to the zip file containing the ground truth data.
         - verbose: Whether to show a progress bar while reading the zip file.
+        - include_transfer_function: Whether to include the transfer function data.
 
     Returns:
         - List of numpy arrays, one for each frame, containing the pixel data.
         - Dictionary of parameters read from the parameters.json file in the zip.
+        - Dictionary of transfer function data, if included.
     """
     arrays = []
     with zipfile.ZipFile(file_path, mode='r') as archive:
         files = sorted(archive.namelist())
         parameters = {}
+        transfer_function = {}
 
         for file in tqdm(files, disable=not verbose, desc='Reading ground truth zip'):
             if file.endswith('.bin'):
@@ -36,7 +39,12 @@ def read_ground_truth_zip(
             elif file == 'parameters.json':
                 buffer_bytes = archive.read(file)
                 parameters = json.loads(buffer_bytes.decode('utf-8'))
+            elif file == 'transfer_function.json':
+                buffer_bytes = archive.read(file)
+                transfer_function = json.loads(buffer_bytes.decode('utf-8'))
 
+    if include_transfer_function:
+        return arrays, parameters, transfer_function
     return arrays, parameters
 
 
@@ -95,15 +103,25 @@ def create_image(values: torch.Tensor, mask: np.ndarray, resolution: int) -> np.
     return image
 
 
-def export_state_dict(model, model_args, file_name=None, buffer=None):
+def export_state_dict(
+    model,
+    model_args,
+    file_name=None,
+    buffer=None,
+    parameters=None,
+    transfer_function=None,
+):
     """Export the model's state_dict as a zip file for browser inference.
 
     Parameters:
         - model: The PyTorch model to export.
         - model_args: Dictionary of used model arguments
         - file_name: The name of the output zip file.
+        - parameters: Dictionary of model parameters.
+        - transfer_function: Dictionary of transfer function data.
 
     Returns:
+        - None. The function writes the zip file to disk or to the provided buffer.
 
     """
     metadata = {'model_args': model_args}
@@ -128,3 +146,9 @@ def export_state_dict(model, model_args, file_name=None, buffer=None):
             }
 
         zf.writestr('metadata.json', json.dumps(metadata, indent=4))
+        if parameters is not None:
+            zf.writestr('parameters.json', json.dumps(parameters, indent=4))
+        if transfer_function is not None:
+            zf.writestr(
+                'transfer_function.json', json.dumps(transfer_function, indent=4)
+            )
