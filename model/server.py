@@ -164,7 +164,8 @@ def parse_ground_truth(data_bytes):
     # Preprocess
     non_zero_mask = (array != 0).any(dim=1)
     non_nan_mask = ~torch.isnan(array).any(dim=1)
-    valid_mask = non_zero_mask & non_nan_mask
+    in_bounds_mask = ((array[:, :3] > 0) & (array[:, :3] < 1)).all(dim=1)
+    valid_mask = non_zero_mask & non_nan_mask & in_bounds_mask
     array = array[valid_mask]
 
     # Normalize azimuth and elevation to [0, 1]

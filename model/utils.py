@@ -86,7 +86,7 @@ def create_image(values: torch.Tensor, mask: np.ndarray, resolution: int) -> np.
     Returns:
         - Numpy array of shape (resolution, resolution, 3).
     """
-    image = np.zeros((resolution, resolution, 3))
+    image = np.ones((resolution, resolution, 3))
     image_flat = image.reshape(-1, 3)
     values_cpu = values.detach().cpu().numpy()
 
