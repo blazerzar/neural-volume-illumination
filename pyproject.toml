@@ -9,7 +9,7 @@ dependencies = [
     "matplotlib>=3.10.8",
     "nbformat>=5.10.4",
     "numpy>=2.4.2",
-    "onnxruntime-gpu>=1.24.3",
+    "onnxruntime-gpu>=1.24.3; sys_platform == 'linux'",
     "onnxscript>=0.6.2",
     "opencv-python>=4.13.0.92",
     "torch>=2.10.0",

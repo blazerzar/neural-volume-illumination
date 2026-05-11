@@ -14,9 +14,9 @@ import io
 import json
 import logging
 import multiprocessing as mp
+import queue as queue_mod
 import signal
 import time
-from concurrent.futures import ProcessPoolExecutor
 from sys import argv, exit
 
 import cv2
@@ -44,8 +44,6 @@ client = None
 model_parameters = {}
 show_images = False
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-frame_queue = mp.Queue()
 
 
 async def main():
@@ -208,7 +206,7 @@ def train_model(model, optimizer, X, y, mask):
     return val_loss, duration
 
 
-def display_process():
+def display_process(frame_queue):
     cv2.namedWindow('Radiance Field Network', cv2.WINDOW_NORMAL)
     while True:
         try:
@@ -216,8 +214,11 @@ def display_process():
             if frame is None:
                 break
             cv2.imshow('Radiance Field Network', frame)
-        except Exception:
+        except queue_mod.Empty:
             pass
+        except Exception as e:
+            logger.exception(e)
+            break
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     cv2.destroyAllWindows()
@@ -234,11 +235,19 @@ if __name__ == '__main__':
     for i in range(2, len(argv)):
         show_images |= argv[i] == '--show-images'
 
+    display_proc = None
     if show_images:
-        executor = ProcessPoolExecutor(1)
-        executor.submit(display_process)
+        frame_queue = mp.Queue()
+        display_proc = mp.Process(
+            target=display_process, args=(frame_queue,), daemon=True
+        )
+        display_proc.start()
 
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         pass
+    finally:
+        if display_proc is not None:
+            frame_queue.put(None)
+            display_proc.join(timeout=2)

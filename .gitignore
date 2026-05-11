@@ -3,4 +3,5 @@
 /data/models/*
 __pycache__/
 wandb/
+.DS_Store
 !.gitkeep
