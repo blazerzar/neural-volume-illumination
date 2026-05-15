@@ -92,6 +92,7 @@ def train_model(
     masks=None,
     wait=False,
     pause=False,
+    return_time=False,
 ):
     """Train the Radiance Field Network on the given data with specified
     hyperparameters.
@@ -109,12 +110,14 @@ def train_model(
         - masks: Boolean masks of valid pixels, required if show_images is True.
         - wait: If True, wait until a key press at the start.
         - pause: If True, pause after displaying each image until user input.
+        - return_time: If True, return per-frame times in milliseconds.
 
     Returns:
         - model
         - training losses
         - validation losses
         - baseline losses
+        - times (only if return_time is True)
     """
     assert not show_images or (resolution is not None and masks is not None), (
         'Resolution and masks are required to show images.'
@@ -127,6 +130,7 @@ def train_model(
     baseline_losses = []
     train_losses = []
     val_losses = []
+    times = []
 
     if show_images:
         cv2.namedWindow('Radiance Field Network', cv2.WINDOW_NORMAL)
@@ -171,6 +175,7 @@ def train_model(
         baseline_losses.append(loss_fn(mean_predicts, y).item())
         train_losses.append(loss.item())
         val_losses.append(val_loss)
+        times.append((end - start) * 1000)
 
         pbar.set_postfix(
             train_loss=loss.item(),
@@ -192,6 +197,8 @@ def train_model(
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
+    if return_time:
+        return model, train_losses, val_losses, baseline_losses, times
     return model, train_losses, val_losses, baseline_losses
 
 
