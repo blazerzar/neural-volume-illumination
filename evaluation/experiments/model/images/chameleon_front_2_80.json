@@ -1,0 +1,23 @@
+{
+    "name": "model_images_chameleon_front_2_80",
+    "seed": 1,
+    "volume": "data/volumes/chameleon/chameleon_512x512x540_1x1x1_uint8.raw",
+    "transfer_function": "data/volumes/chameleon/2.json",
+    "file_server": "localhost:8000",
+    "rendering_time": "30s",
+    "vpt_config": {
+        "extinction": 80,
+        "anisotropy": 0,
+        "samples": 5,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": true,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": false,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "front"
+    }
+}
