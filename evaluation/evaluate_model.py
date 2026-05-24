@@ -2,6 +2,7 @@
 Trains models from experiments/model/ and saves per-frame training metrics.
 """
 
+import csv
 import gc
 import json
 import os
@@ -38,6 +39,8 @@ def main():
 
     experiments = []
     for root, _, files in os.walk(MODEL_EXPERIMENTS_DIR):
+        if root.endswith('/images'):
+            continue
         for f in files:
             if f.endswith('.json'):
                 experiments.append(os.path.join(root, f))
@@ -74,19 +77,22 @@ def main():
         )
 
         if train_metrics:
-            metrics = [
-                {
-                    'frame': i,
-                    'train_loss': train_losses[i],
-                    'val_loss': val_losses[i],
-                    'baseline_loss': baseline_losses[i],
-                    'time_ms': times[i],
-                }
-                for i in range(len(train_losses))
-            ]
             os.makedirs(os.path.dirname(train_metrics), exist_ok=True)
-            with open(train_metrics, 'w') as f:
-                json.dump(metrics, f, indent=4)
+            with open(train_metrics, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(
+                    ['frame', 'train_loss', 'val_loss', 'baseline_loss', 'time_ms']
+                )
+                for i in range(len(train_losses)):
+                    writer.writerow(
+                        [
+                            i,
+                            train_losses[i],
+                            val_losses[i],
+                            baseline_losses[i],
+                            times[i],
+                        ]
+                    )
             print(f'[{name}] Metrics saved to {train_metrics}')
 
         os.makedirs(os.path.dirname(model_key), exist_ok=True)

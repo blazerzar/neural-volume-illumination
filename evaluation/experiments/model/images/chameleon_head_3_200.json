@@ -1,11 +1,15 @@
 {
     "name": "model_images_chameleon_head_3_200",
+    "type": "image",
     "seed": 1,
     "volume": "data/volumes/chameleon/chameleon_512x512x540_1x1x1_uint8.raw",
     "transfer_function": "data/volumes/chameleon/3.json",
     "file_server": "localhost:8000",
     "rendering_time": "20s",
-    "display_modes": ["global", "indirect"],
+    "display_modes": [
+        "global",
+        "indirect"
+    ],
     "vpt_config": {
         "resolution": 512,
         "extinction": 200,

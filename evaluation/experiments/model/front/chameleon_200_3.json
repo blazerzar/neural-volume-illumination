@@ -1,12 +1,13 @@
 {
     "name": "model_front_chameleon_200_3",
+    "type": "model",
     "seed": 1,
     "volume": "data/volumes/chameleon/chameleon_512x512x540_1x1x1_uint8.raw",
     "transfer_function": "data/volumes/chameleon/3.json",
     "file_server": "localhost:8000",
     "radiance": "data/radiance/model_front_chameleon_200_3.zip",
     "model": "data/models/model/front/chameleon_200_3.zip",
-    "train_metrics": "evaluation/results/model/front/chameleon_200_3.json",
+    "train_metrics": "evaluation/results/model/front/chameleon_200_3.csv",
     "vpt_config": {
         "resolution": 512,
         "extinction": 200,

@@ -1,12 +1,13 @@
 {
     "name": "model_turntable_chameleon_1000_3",
+    "type": "model",
     "seed": 2,
     "volume": "data/volumes/chameleon/chameleon_512x512x540_1x1x1_uint8.raw",
     "transfer_function": "data/volumes/chameleon/3.json",
     "file_server": "localhost:8000",
     "radiance": "data/radiance/model_turntable_chameleon_1000_3.zip",
     "model": "data/models/model/turntable/chameleon_1000_3.zip",
-    "train_metrics": "evaluation/results/model/turntable/chameleon_1000_3.json",
+    "train_metrics": "evaluation/results/model/turntable/chameleon_1000_3.csv",
     "vpt_config": {
         "resolution": 512,
         "extinction": 1000,
