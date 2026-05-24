@@ -8,6 +8,7 @@
     "model": "data/models/model/turntable/chameleon_200_3.zip",
     "train_metrics": "evaluation/results/model/turntable/chameleon_200_3.json",
     "vpt_config": {
+        "resolution": 512,
         "extinction": 200,
         "anisotropy": 0,
         "samples": 5,

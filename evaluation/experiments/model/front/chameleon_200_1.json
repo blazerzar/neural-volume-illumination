@@ -8,6 +8,7 @@
     "model": "data/models/model/front/chameleon_200_1.zip",
     "train_metrics": "evaluation/results/model/front/chameleon_200_1.json",
     "vpt_config": {
+        "resolution": 512,
         "extinction": 200,
         "anisotropy": 0,
         "samples": 5,

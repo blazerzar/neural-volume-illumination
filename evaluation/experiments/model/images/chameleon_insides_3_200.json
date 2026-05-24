@@ -5,7 +5,9 @@
     "transfer_function": "data/volumes/chameleon/3.json",
     "file_server": "localhost:8000",
     "rendering_time": "20s",
+    "display_modes": ["global", "indirect"],
     "vpt_config": {
+        "resolution": 512,
         "extinction": 200,
         "anisotropy": 0,
         "samples": 5,
