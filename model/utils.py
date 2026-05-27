@@ -67,7 +67,8 @@ def preprocess_data(
     for frame in tqdm(data, disable=not verbose, desc='Preprocessing data'):
         non_zero_mask = (frame != 0).any(axis=1)
         non_nan_mask = ~np.isnan(frame).any(axis=1)
-        valid_mask = non_zero_mask & non_nan_mask
+        in_bounds_mask = ((frame[:, :3] > 0) & (frame[:, :3] < 1)).all(axis=1)
+        valid_mask = non_zero_mask & non_nan_mask & in_bounds_mask
         filtered_frame = frame[valid_mask]
         tensor_frame = torch.from_numpy(filtered_frame).float().to(device)
 
