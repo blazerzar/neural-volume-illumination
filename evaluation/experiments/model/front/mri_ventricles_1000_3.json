@@ -1,0 +1,27 @@
+{
+    "name": "model_front_mri_ventricles_1000_3",
+    "type": "model",
+    "seed": 2,
+    "volume": "data/volumes/mri_ventricles/mri_ventricles_256x256x124_1x1x1_uint8.raw",
+    "transfer_function": "data/volumes/mri_ventricles/3.json",
+    "file_server": "localhost:8000",
+    "radiance": "data/radiance/model_front_mri_ventricles_1000_3.zip",
+    "model": "data/models/model/front/mri_ventricles_1000_3.zip",
+    "train_metrics": "evaluation/results/model/front/mri_ventricles_1000_3.csv",
+    "vpt_config": {
+        "resolution": 512,
+        "extinction": 1000,
+        "anisotropy": 0,
+        "samples": 5,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": false,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": false,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "front_mri_ventricles"
+    }
+}
