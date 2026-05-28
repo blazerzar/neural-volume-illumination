@@ -1,4 +1,6 @@
-/data/volumes/*
+/data/volumes/**
+!/data/volumes/**/
+!/data/volumes/**/*.json
 /data/radiance/*
 /data/models/*
 __pycache__/
