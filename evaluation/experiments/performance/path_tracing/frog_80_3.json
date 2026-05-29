@@ -1,0 +1,26 @@
+{
+    "name": "path_tracing_frog_80_3",
+    "type": "performance",
+    "seed": 1,
+    "volume": "data/volumes/frog/frog_256x256x44_1x1x2_uint8.raw",
+    "transfer_function": "data/volumes/frog/3.json",
+    "file_server": "localhost:8000",
+    "benchmark_time": "2m",
+    "interval": "1s",
+    "vpt_config": {
+        "resolution": 512,
+        "extinction": 80,
+        "anisotropy": 0,
+        "samples": 5,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": false,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": false,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "turntable_frog"
+    }
+}

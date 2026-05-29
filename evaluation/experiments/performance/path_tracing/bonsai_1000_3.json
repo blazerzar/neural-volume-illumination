@@ -1,0 +1,26 @@
+{
+    "name": "path_tracing_bonsai_1000_3",
+    "type": "performance",
+    "seed": 1,
+    "volume": "data/volumes/bonsai/bonsai2_hi_512x512x189_50293x50293x125000_uint8.raw",
+    "transfer_function": "data/volumes/bonsai/3.json",
+    "file_server": "localhost:8000",
+    "benchmark_time": "2m",
+    "interval": "1s",
+    "vpt_config": {
+        "resolution": 512,
+        "extinction": 1000,
+        "anisotropy": 0,
+        "samples": 5,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": false,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": false,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "turntable_bonsai"
+    }
+}
