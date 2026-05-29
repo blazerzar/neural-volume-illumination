@@ -1,0 +1,26 @@
+{
+    "name": "performance_images_csafe_heptane_200",
+    "type": "image",
+    "seed": 1,
+    "volume": "data/volumes/csafe_heptane/csafe_heptane_302x302x302_1x1x1_uint8.raw",
+    "transfer_function": "data/volumes/csafe_heptane/3.json",
+    "file_server": "localhost:8000",
+    "rendering_time": "20s",
+    "display_modes": ["global"],
+    "vpt_config": {
+        "resolution": 512,
+        "extinction": 200,
+        "anisotropy": 0,
+        "samples": 5,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": true,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": false,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "front_heptane"
+    }
+}
