@@ -1,0 +1,26 @@
+{
+    "name": "online_turntable_mri_ventricles_200_1",
+    "type": "online",
+    "seed": 1,
+    "volume": "data/volumes/mri_ventricles/mri_ventricles_256x256x124_1x1x1_uint8.raw",
+    "transfer_function": "data/volumes/mri_ventricles/1.json",
+    "file_server": "localhost:8000",
+    "train_server": "localhost:8001",
+    "benchmark_time": "5m",
+    "vpt_config": {
+        "resolution": 512,
+        "extinction": 200,
+        "anisotropy": 0,
+        "samples": 5,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": false,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": false,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "turntable_mri_ventricles"
+    }
+}

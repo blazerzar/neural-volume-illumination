@@ -110,6 +110,15 @@ async def handler(websocket):
                 logger.info('Model state reset')
                 response = json.dumps({'type': 'model-reset'})
                 await websocket.send(response.encode('utf-8') + b'\0')
+            elif msg_type == 'seed':
+                data = json.loads(message[null_separator + 1 :].decode('utf-8'))
+                seed = data['seed']
+                torch.manual_seed(seed)
+                if torch.cuda.is_available():
+                    torch.cuda.manual_seed_all(seed)
+                frame = 0
+                model, optimizer = create_model(model_args, lr, device)
+                logger.info(f'Seed set to {seed}, model reset')
             elif msg_type == 'model-request':
                 buffer = io.BytesIO()
                 export_state_dict(model, model_args, buffer=buffer)
@@ -136,7 +145,7 @@ async def train_and_respond(lock, model, optimizer, raw_data, websocket, frame):
             train_model, model, optimizer, *data
         )
         try:
-            response = json.dumps({'type': 'metrics', 'val_loss': val_loss})
+            response = json.dumps({'type': 'metrics', 'val_loss': val_loss, 'train_time': training})
             await websocket.send(response.encode('utf-8') + b'\0')
             logger.info(
                 f'Frame: {frame}, '
