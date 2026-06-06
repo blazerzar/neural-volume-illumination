@@ -1,7 +1,6 @@
 {
     "name": "path_tracing_bonsai_200_3",
     "type": "performance",
-    "seed": 1,
     "volume": "data/volumes/bonsai/bonsai2_hi_512x512x189_50293x50293x125000_uint8.raw",
     "transfer_function": "data/volumes/bonsai/3.json",
     "file_server": "localhost:8000",

@@ -1,7 +1,6 @@
 {
     "name": "neural_render_marmoset_neurons_200_3",
     "type": "performance",
-    "seed": 1,
     "volume": "data/volumes/marmoset_neurons/marmoset_neurons_1024x1024x314_497x497x1500_uint8.raw",
     "transfer_function": "data/volumes/marmoset_neurons/3.json",
     "file_server": "localhost:8000",

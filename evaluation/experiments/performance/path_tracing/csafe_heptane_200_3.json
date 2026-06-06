@@ -1,7 +1,6 @@
 {
     "name": "path_tracing_csafe_heptane_200_3",
     "type": "performance",
-    "seed": 1,
     "volume": "data/volumes/csafe_heptane/csafe_heptane_302x302x302_1x1x1_uint8.raw",
     "transfer_function": "data/volumes/csafe_heptane/3.json",
     "file_server": "localhost:8000",

@@ -1,7 +1,6 @@
 {
     "name": "performance_images_miranda_1000",
     "type": "image",
-    "seed": 1,
     "volume": "data/volumes/miranda/miranda_512x512x512_1x1x1_uint8.raw",
     "transfer_function": "data/volumes/miranda/3.json",
     "file_server": "localhost:8000",
