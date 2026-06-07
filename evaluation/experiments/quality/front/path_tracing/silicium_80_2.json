@@ -1,0 +1,28 @@
+{
+    "name": "quality_front_path_tracing_silicium_80_2",
+    "type": "quality",
+    "volume": "data/volumes/silicium/silicium_98x34x34_1x1x1_uint8.raw",
+    "transfer_function": "data/volumes/silicium/2.json",
+    "file_server": "localhost:8000",
+    "display_modes": ["global", "indirect"],
+    "benchmark_time": "10s",
+    "interval": "100ms",
+    "runs": 8,
+    "reference": "evaluation/results/quality/references/front_silicium_80_2",
+    "vpt_config": {
+        "resolution": 512,
+        "extinction": 80,
+        "anisotropy": 0,
+        "samples": 5,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": true,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": false,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "front_silicium"
+    }
+}

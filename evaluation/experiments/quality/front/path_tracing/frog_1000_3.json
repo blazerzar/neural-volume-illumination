@@ -1,0 +1,28 @@
+{
+    "name": "quality_front_path_tracing_frog_1000_3",
+    "type": "quality",
+    "volume": "data/volumes/frog/frog_256x256x44_1x1x2_uint8.raw",
+    "transfer_function": "data/volumes/frog/3.json",
+    "file_server": "localhost:8000",
+    "display_modes": ["global", "indirect"],
+    "benchmark_time": "10s",
+    "interval": "100ms",
+    "runs": 10,
+    "reference": "evaluation/results/quality/references/front_frog_1000_3",
+    "vpt_config": {
+        "resolution": 512,
+        "extinction": 1000,
+        "anisotropy": 0,
+        "samples": 5,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": true,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": false,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "front_frog"
+    }
+}

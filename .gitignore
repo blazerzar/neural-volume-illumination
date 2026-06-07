@@ -3,6 +3,7 @@
 !/data/volumes/**/*.json
 /data/radiance/*
 /data/models/*
+/data/images/*
 __pycache__/
 wandb/
 !.gitkeep

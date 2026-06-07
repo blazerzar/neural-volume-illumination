@@ -1,0 +1,25 @@
+{
+    "name": "front_marmoset_neurons_200_1",
+    "type": "image",
+    "volume": "data/volumes/marmoset_neurons/marmoset_neurons_1024x1024x314_497x497x1500_uint8.raw",
+    "transfer_function": "data/volumes/marmoset_neurons/1.json",
+    "file_server": "localhost:8000",
+    "rendering_time": "3m",
+    "display_modes": ["global", "indirect"],
+    "vpt_config": {
+        "resolution": 512,
+        "extinction": 200,
+        "anisotropy": 0,
+        "samples": 5,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": true,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": false,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "front_neurons"
+    }
+}

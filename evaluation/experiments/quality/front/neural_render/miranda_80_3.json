@@ -1,0 +1,31 @@
+{
+    "name": "quality_front_neural_render_miranda_80_3",
+    "type": "quality",
+    "seed": 1,
+    "volume": "data/volumes/miranda/miranda_512x512x512_1x1x1_uint8.raw",
+    "transfer_function": "data/volumes/miranda/3.json",
+    "file_server": "localhost:8000",
+    "radiance": "data/radiance/quality_miranda_80_3.zip",
+    "model": "data/models/quality/miranda_80_3.zip",
+    "display_modes": ["global", "indirect"],
+    "benchmark_time": "10s",
+    "interval": "100ms",
+    "runs": 10,
+    "reference": "evaluation/results/quality/references/front_miranda_80_3",
+    "vpt_config": {
+        "resolution": 512,
+        "extinction": 80,
+        "anisotropy": 0,
+        "samples": 5,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": true,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": false,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "front_miranda"
+    }
+}

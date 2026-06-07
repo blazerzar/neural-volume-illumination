@@ -25,7 +25,10 @@ from utils import (
 )
 
 RADIANCE_DIR = 'data/radiance'
-EXPERIMENTS_DIRS = ['evaluation/experiments/performance']
+EXPERIMENTS_DIRS = [
+    'evaluation/experiments/performance',
+    'evaluation/experiments/quality/front/neural_render',
+]
 MODEL_ARGS_FILE = 'data/configs/model_parameters/gpu.json'
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
@@ -78,7 +81,7 @@ def main():
                 continue
 
             logging.info(f'[{name}] Training model')
-            seed = seed_from_name(name)
+            seed = experiment.get('seed') or seed_from_name(name)
             seed_all(seed)
             data, parameters, transfer_function = read_ground_truth_zip(
                 radiance_path, verbose=True, include_transfer_function=True
