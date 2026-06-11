@@ -6,6 +6,7 @@ SSIM, LPIPS and PSNR metrics and store the results into a CSV file.
 import io
 import json
 import os
+import sys
 import zipfile
 
 import matplotlib.image as mpimg
@@ -33,6 +34,18 @@ EXPERIMENT_DIRS = [
         os.path.join('evaluation', 'experiments', 'quality', 'front', 'neural_render'),
         os.path.join('quality', 'front', 'neural_render'),
     ),
+    (
+        os.path.join(
+            'evaluation', 'experiments', 'quality', 'turntable', 'path_tracing'
+        ),
+        os.path.join('quality', 'turntable', 'path_tracing'),
+    ),
+    (
+        os.path.join(
+            'evaluation', 'experiments', 'quality', 'turntable', 'neural_render'
+        ),
+        os.path.join('quality', 'turntable', 'neural_render'),
+    ),
 ]
 RESULTS_DIR = os.path.join('evaluation', 'results')
 BATCH_SIZE = 16
@@ -44,9 +57,15 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def main():
+    skip_existing = '--skip-existing' in sys.argv
     for experiment_dir, result_dir in EXPERIMENT_DIRS:
         for experiment in os.listdir(experiment_dir):
             experiment_path = os.path.join(experiment_dir, experiment)
+            csv_dir = os.path.join(RESULTS_DIR, result_dir)
+            csv_path = os.path.join(csv_dir, experiment.split('.')[0] + '.csv')
+            if skip_existing and os.path.exists(csv_path):
+                print(f'Skipping {experiment_path}')
+                continue
             print(f'Running {experiment_path}')
             with open(experiment_path, 'rt') as f:
                 experiment_json = json.load(f)
@@ -57,9 +76,7 @@ def main():
             results = evaluate_experiment(
                 image_zip, reference_global, reference_indirect
             )
-            csv_dir = os.path.join(RESULTS_DIR, result_dir)
             os.makedirs(csv_dir, exist_ok=True)
-            csv_path = os.path.join(csv_dir, experiment.split('.')[0] + '.csv')
             results.to_csv(csv_path, index=False)
 
 
