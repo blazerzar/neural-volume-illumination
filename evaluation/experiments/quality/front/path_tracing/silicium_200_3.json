@@ -6,8 +6,8 @@
     "file_server": "localhost:8000",
     "display_modes": ["global", "indirect"],
     "benchmark_time": "10s",
-    "interval": "100ms",
-    "runs": 8,
+    "interval": "250ms",
+    "runs": 10,
     "reference": "evaluation/results/quality/references/front_silicium_200_3",
     "vpt_config": {
         "resolution": 512,

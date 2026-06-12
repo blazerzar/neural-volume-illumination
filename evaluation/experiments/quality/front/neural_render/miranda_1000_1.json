@@ -9,7 +9,7 @@
     "model": "data/models/quality/miranda_1000_1.zip",
     "display_modes": ["global", "indirect"],
     "benchmark_time": "10s",
-    "interval": "100ms",
+    "interval": "250ms",
     "runs": 10,
     "reference": "evaluation/results/quality/references/front_miranda_1000_1",
     "vpt_config": {

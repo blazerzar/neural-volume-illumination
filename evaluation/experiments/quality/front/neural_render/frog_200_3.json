@@ -9,7 +9,7 @@
     "model": "data/models/quality/frog_200_3.zip",
     "display_modes": ["global", "indirect"],
     "benchmark_time": "10s",
-    "interval": "100ms",
+    "interval": "250ms",
     "runs": 10,
     "reference": "evaluation/results/quality/references/front_frog_200_3",
     "vpt_config": {

@@ -6,7 +6,7 @@
     "file_server": "localhost:8000",
     "display_modes": ["global", "indirect"],
     "benchmark_time": "10s",
-    "interval": "100ms",
+    "interval": "250ms",
     "runs": 10,
     "reference": "evaluation/results/quality/references/front_csafe_heptane_200_3",
     "vpt_config": {
