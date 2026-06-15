@@ -1,5 +1,5 @@
 """
-Trains models from experiments/model/ and saves per-frame training metrics.
+Trains models from experiments/model/ and experiments/filter/model/ and saves per-frame training metrics.
 """
 
 import csv
@@ -21,7 +21,10 @@ from utils import (
     read_ground_truth_zip,
 )
 
-MODEL_EXPERIMENTS_DIR = 'evaluation/experiments/model'
+MODEL_EXPERIMENTS_DIRS = [
+    'evaluation/experiments/model',
+    'evaluation/experiments/filter/model',
+]
 MODEL_ARGS_FILE = 'data/configs/model_parameters/gpu.json'
 
 
@@ -38,12 +41,13 @@ def main():
     model_args = json.load(open(MODEL_ARGS_FILE, 'r'))
 
     experiments = []
-    for root, _, files in os.walk(MODEL_EXPERIMENTS_DIR):
-        if root.endswith('/images'):
-            continue
-        for f in files:
-            if f.endswith('.json'):
-                experiments.append(os.path.join(root, f))
+    for experiments_dir in MODEL_EXPERIMENTS_DIRS:
+        for root, _, files in os.walk(experiments_dir):
+            if root.endswith('/images'):
+                continue
+            for f in files:
+                if f.endswith('.json'):
+                    experiments.append(os.path.join(root, f))
 
     for experiment_path in experiments:
         with open(experiment_path) as f:
