@@ -27,4 +27,6 @@ def set_legend_style(legend):
     frame = legend.get_frame()
     frame.set_edgecolor('black')
     frame.set_linewidth(0.8)
-    frame.set_boxstyle('Square', pad=0.05)
+    frame.set_boxstyle('Square', pad=0)
+    frame.set_facecolor('white')
+    frame.set_alpha(1.0)

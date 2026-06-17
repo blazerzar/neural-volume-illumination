@@ -5,6 +5,7 @@ import zipfile
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.ticker import MaxNLocator
 from plot_utils import colors, set_legend_style
 
 PIXEL_VALUES = 8
@@ -136,3 +137,230 @@ def read_ground_truth_zip(file_path, array_file):
                 parameters = json.loads(buffer_bytes.decode('utf-8'))
 
     return array, parameters
+
+
+def read_performance_results(dir_path):
+    results = {}
+    for filename in os.listdir(dir_path):
+        if not filename.endswith('.csv'):
+            continue
+        volume, extinction, *_ = filename[:-4].rsplit('_', 2)
+        file_path = os.path.join(dir_path, filename)
+        data = pd.read_csv(file_path)
+        results[(volume, int(extinction))] = data
+    return results
+
+
+def plot_performance_stages(ax, results, experiment, stages, colors):
+    df = results[experiment]
+    ax.stackplot(
+        df['time'],
+        *[df[c] for c in stages],
+        labels=stages,
+        colors=colors,
+    )
+
+
+def compute_performance_speedup(results):
+    volumes = sorted({volume for volume, _ in results['path_tracing']})
+    extinctions = sorted({extinction for _, extinction in results['path_tracing']})
+
+    df = pd.DataFrame(
+        [
+            {
+                'volume': volume,
+                'extinction': extinction,
+                'ours_Ld': results['neural_render'][volume, extinction][
+                    'stage_direct'
+                ].mean(),
+                'ours_Ld_se': results['neural_render'][volume, extinction][
+                    'stage_direct'
+                ].std()
+                / np.sqrt(len(results['neural_render'][volume, extinction])),
+                'ours_Li': results['neural_render'][volume, extinction][
+                    'stage_indirect'
+                ].mean(),
+                'ours_Li_se': results['neural_render'][volume, extinction][
+                    'stage_indirect'
+                ].std()
+                / np.sqrt(len(results['neural_render'][volume, extinction])),
+                'ours_L': results['neural_render'][volume, extinction][
+                    'stage_direct'
+                ].mean()
+                + results['neural_render'][volume, extinction]['stage_indirect'].mean(),
+                'pt_Ld': results['path_tracing'][volume, extinction][
+                    'stage_direct'
+                ].mean(),
+                'pt_Ld_se': results['path_tracing'][volume, extinction][
+                    'stage_direct'
+                ].std()
+                / np.sqrt(len(results['path_tracing'][volume, extinction])),
+                'pt_Li': results['path_tracing'][volume, extinction][
+                    'stage_indirect'
+                ].mean(),
+                'pt_Li_se': results['path_tracing'][volume, extinction][
+                    'stage_indirect'
+                ].std()
+                / np.sqrt(len(results['path_tracing'][volume, extinction])),
+                'pt_L': results['path_tracing'][volume, extinction][
+                    'stage_direct'
+                ].mean()
+                + results['path_tracing'][volume, extinction]['stage_indirect'].mean(),
+                'ours_ft': results['neural_render'][volume, extinction][
+                    'frame_time'
+                ].mean(),
+                'ours_ft_se': results['neural_render'][volume, extinction][
+                    'frame_time'
+                ].std()
+                / np.sqrt(len(results['neural_render'][volume, extinction])),
+                'ours_fps': results['neural_render'][volume, extinction]['fps'].mean(),
+                'ours_fps_se': results['neural_render'][volume, extinction]['fps'].std()
+                / np.sqrt(len(results['neural_render'][volume, extinction])),
+                'pt_ft': results['path_tracing'][volume, extinction][
+                    'frame_time'
+                ].mean(),
+                'pt_ft_se': results['path_tracing'][volume, extinction][
+                    'frame_time'
+                ].std()
+                / np.sqrt(len(results['path_tracing'][volume, extinction])),
+                'pt_fps': results['path_tracing'][volume, extinction]['fps'].mean(),
+                'pt_fps_se': results['path_tracing'][volume, extinction]['fps'].std()
+                / np.sqrt(len(results['path_tracing'][volume, extinction])),
+            }
+            for volume in volumes
+            for extinction in extinctions
+        ]
+    )
+
+    df['speedup_Li'] = df['pt_Li'] / df['ours_Li']
+    df['speedup_L'] = df['pt_L'] / df['ours_L']
+    df['speedup_ft'] = df['pt_ft'] / df['ours_ft']
+
+    overall = df[
+        ['ours_Ld', 'ours_Li', 'ours_L', 'pt_Ld', 'pt_Li', 'pt_L', 'ours_ft', 'pt_ft']
+    ].sum()
+    df = pd.concat(
+        [
+            df,
+            pd.DataFrame(
+                [
+                    {
+                        'volume': 'Overall',
+                        'extinction': None,
+                        'ours_Ld': overall['ours_Ld'],
+                        'ours_Ld_se': None,
+                        'ours_Li': overall['ours_Li'],
+                        'ours_Li_se': None,
+                        'ours_L': overall['ours_L'],
+                        'pt_Ld': overall['pt_Ld'],
+                        'pt_Ld_se': None,
+                        'pt_Li': overall['pt_Li'],
+                        'pt_Li_se': None,
+                        'pt_L': overall['pt_L'],
+                        'ours_ft': overall['ours_ft'],
+                        'ours_ft_se': None,
+                        'ours_fps': None,
+                        'ours_fps_se': None,
+                        'pt_ft': overall['pt_ft'],
+                        'pt_ft_se': None,
+                        'pt_fps': None,
+                        'pt_fps_se': None,
+                        'speedup_Li': overall['pt_Li'] / overall['ours_Li'],
+                        'speedup_L': overall['pt_L'] / overall['ours_L'],
+                        'speedup_ft': overall['pt_ft'] / overall['ours_ft'],
+                    }
+                ]
+            ),
+        ],
+        ignore_index=True,
+    )
+
+    return df
+
+
+def print_stage_timing(timings):
+    print(
+        f'{"Dataset":<20} {"Ext.":<7} '
+        f'{"Ours Ld":<16} {"Ours Li":<16} {"Ours L":<10} '
+        f'{"PT Ld":<16} {"PT Li":<16} {"PT L":<10} '
+        f'{"S Li":<5} {"S L":<5}'
+    )
+    for _, row in timings.iterrows():
+        if row['volume'] == 'Overall':
+            print(
+                f'{"Overall":<20} {"":<7} '
+                f'{row["ours_Ld"]:<16.2f} {row["ours_Li"]:<16.2f} {row["ours_L"]:<10.2f} '
+                f'{row["pt_Ld"]:<16.2f} {row["pt_Li"]:<16.2f} {row["pt_L"]:<10.2f} '
+                f'{row["speedup_Li"]:<5.2f} {row["speedup_L"]:<5.2f}'
+            )
+        else:
+            volume_label = (
+                row['volume']
+                if row.name == timings[timings['volume'] == row['volume']].index[0]
+                else ''
+            )
+            print(
+                f'{volume_label:<20} '
+                f'{str(row["extinction"]):<7} '
+                f'{f"{row['ours_Ld']:.2f} ± {row['ours_Ld_se']:.2f}":<16} '
+                f'{f"{row['ours_Li']:.2f} ± {row['ours_Li_se']:.2f}":<16} '
+                f'{row["ours_L"]:<10.2f} '
+                f'{f"{row['pt_Ld']:.2f} ± {row['pt_Ld_se']:.2f}":<16} '
+                f'{f"{row['pt_Li']:.2f} ± {row['pt_Li_se']:.2f}":<16} '
+                f'{row["pt_L"]:<10.2f} '
+                f'{row["speedup_Li"]:<5.2f} '
+                f'{row["speedup_L"]:<5.2f}'
+            )
+
+
+def print_frame_timing(timings):
+    print(
+        f'{"Dataset":<20} {"Ext.":<7} '
+        f'{"Ours Frame Time":<20} {"Ours FPS":<20} '
+        f'{"PT Frame Time":<20} {"PT FPS":<20} '
+        f'{"Speedup":<7}'
+    )
+    for _, row in timings.iterrows():
+        if row['volume'] == 'Overall':
+            print(
+                f'{"Overall":<20} {"":<7} '
+                f'{row["ours_ft"]:<20.2f} {"":<20} '
+                f'{row["pt_ft"]:<20.2f} {"":<20} '
+                f'{row["speedup_ft"]:<7.2f}'
+            )
+        else:
+            volume_label = (
+                row['volume']
+                if row.name == timings[timings['volume'] == row['volume']].index[0]
+                else ''
+            )
+            print(
+                f'{volume_label:<20} '
+                f'{str(row["extinction"]):<7} '
+                f'{f"{row['ours_ft']:.2f} ± {row['ours_ft_se']:.2f}":<20} '
+                f'{f"{row['ours_fps']:.2f} ± {row['ours_fps_se']:.2f}":<20} '
+                f'{f"{row['pt_ft']:.2f} ± {row['pt_ft_se']:.2f}":<20} '
+                f'{f"{row['pt_fps']:.2f} ± {row['pt_fps_se']:.2f}":<20} '
+                f'{row["speedup_ft"]:<7.2f}'
+            )
+
+
+def plot_speedups(ax, timings, speedup_col, colors, add_labels=False):
+    df = timings[timings['extinction'].notna()]
+    volumes = sorted(df['volume'].unique())
+    extinctions = sorted(df['extinction'].unique())
+    speedups = df.set_index(['volume', 'extinction'])[speedup_col]
+    for i, volume in enumerate(reversed(volumes)):
+        for j, extinction in enumerate(extinctions):
+            ax.barh(
+                i - (j - 1) * 0.22,
+                speedups[volume, extinction],
+                color=colors.get(extinction),
+                height=0.22,
+                label=str(extinction) if (add_labels and i == 0) else None,
+                edgecolor='black',
+                linewidth=0.8,
+            )
+    ax.axvspan(0, 1, color='lightgray', alpha=0.5, zorder=0)
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_xlabel('Speedup')

@@ -1,0 +1,27 @@
+{
+    "name": "filter_performance_neural_render_chameleon_80_3",
+    "type": "performance",
+    "volume": "data/volumes/chameleon/chameleon_512x512x540_1x1x1_uint8.raw",
+    "transfer_function": "data/volumes/chameleon/3.json",
+    "file_server": "localhost:8000",
+    "radiance": "data/radiance/filter_performance_neural_render_chameleon_80_3.zip",
+    "model": "data/models/filter/performance/neural_render/chameleon_80_3.zip",
+    "benchmark_time": "2m",
+    "interval": "1s",
+    "vpt_config": {
+        "resolution": 512,
+        "extinction": 80,
+        "anisotropy": 0,
+        "samples": 5,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": false,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": true,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "turntable"
+    }
+}

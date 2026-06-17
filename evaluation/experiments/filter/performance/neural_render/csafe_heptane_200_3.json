@@ -1,0 +1,27 @@
+{
+    "name": "filter_performance_neural_render_csafe_heptane_200_3",
+    "type": "performance",
+    "volume": "data/volumes/csafe_heptane/csafe_heptane_302x302x302_1x1x1_uint8.raw",
+    "transfer_function": "data/volumes/csafe_heptane/3.json",
+    "file_server": "localhost:8000",
+    "radiance": "data/radiance/filter_performance_neural_render_csafe_heptane_200_3.zip",
+    "model": "data/models/filter/performance/neural_render/csafe_heptane_200_3.zip",
+    "benchmark_time": "2m",
+    "interval": "1s",
+    "vpt_config": {
+        "resolution": 512,
+        "extinction": 200,
+        "anisotropy": 0,
+        "samples": 5,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": false,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": true,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "turntable_heptane"
+    }
+}
