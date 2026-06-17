@@ -30,6 +30,7 @@ EXPERIMENTS_DIRS = [
     'evaluation/experiments/quality/front/neural_render',
     'evaluation/experiments/quality/turntable/neural_render',
     'evaluation/experiments/filter/performance/neural_render',
+    'evaluation/experiments/filter/quality/neural_render',
 ]
 MODEL_ARGS_FILE = 'data/configs/model_parameters/gpu.json'
 

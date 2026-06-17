@@ -6,7 +6,6 @@ SSIM, LPIPS and PSNR metrics and store the results into a CSV file.
 import io
 import json
 import os
-import sys
 import zipfile
 
 import matplotlib.image as mpimg
@@ -25,30 +24,26 @@ from torchmetrics.functional.image import (
 from tqdm import tqdm
 
 IMAGES_DIR = os.path.join('data', 'images')
-EXPERIMENT_DIRS = [
-    (
-        os.path.join('evaluation', 'experiments', 'quality', 'front', 'path_tracing'),
-        os.path.join('quality', 'front', 'path_tracing'),
-    ),
-    (
-        os.path.join('evaluation', 'experiments', 'quality', 'front', 'neural_render'),
-        os.path.join('quality', 'front', 'neural_render'),
-    ),
-    (
-        os.path.join(
-            'evaluation', 'experiments', 'quality', 'turntable', 'path_tracing'
-        ),
-        os.path.join('quality', 'turntable', 'path_tracing'),
-    ),
-    (
-        os.path.join(
-            'evaluation', 'experiments', 'quality', 'turntable', 'neural_render'
-        ),
-        os.path.join('quality', 'turntable', 'neural_render'),
-    ),
-]
+EXPERIMENTS_ROOT = os.path.join('evaluation', 'experiments')
 RESULTS_DIR = os.path.join('evaluation', 'results')
 BATCH_SIZE = 16
+
+QUALITY_GROUPS = (
+    'quality/front',
+    'quality/turntable',
+    'filter/quality',
+)
+METHODS = ('path_tracing', 'neural_render')
+
+
+def iter_experiment_dirs():
+    """Yield (experiment_dir, result_dir) for each quality experiment group."""
+    for group in QUALITY_GROUPS:
+        for method in METHODS:
+            yield (
+                os.path.join(EXPERIMENTS_ROOT, group, method),
+                os.path.join(RESULTS_DIR, group, method),
+            )
 
 GLOBAL_IMG = 1
 INDIRECT_IMG = 2
@@ -57,13 +52,11 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def main():
-    skip_existing = '--skip-existing' in sys.argv
-    for experiment_dir, result_dir in EXPERIMENT_DIRS:
+    for experiment_dir, result_dir in iter_experiment_dirs():
         for experiment in os.listdir(experiment_dir):
             experiment_path = os.path.join(experiment_dir, experiment)
-            csv_dir = os.path.join(RESULTS_DIR, result_dir)
-            csv_path = os.path.join(csv_dir, experiment.split('.')[0] + '.csv')
-            if skip_existing and os.path.exists(csv_path):
+            csv_path = os.path.join(result_dir, experiment.split('.')[0] + '.csv')
+            if os.path.exists(csv_path):
                 print(f'Skipping {experiment_path}')
                 continue
             print(f'Running {experiment_path}')
@@ -76,7 +69,7 @@ def main():
             results = evaluate_experiment(
                 image_zip, reference_global, reference_indirect
             )
-            os.makedirs(csv_dir, exist_ok=True)
+            os.makedirs(result_dir, exist_ok=True)
             results.to_csv(csv_path, index=False)
 
 

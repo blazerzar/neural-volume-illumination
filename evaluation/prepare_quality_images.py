@@ -1,6 +1,7 @@
 """
-Reads quality experiment declarations and moves downloaded image ZIPs
-from ~/Downloads into the data/images/ directory.
+Reads quality experiment declarations (under quality/ and filter/quality/,
+neural_render and path_tracing directories only) and moves downloaded image
+ZIPs from ~/Downloads into the data/images/ directory.
 """
 
 import json
@@ -9,21 +10,28 @@ import os
 import shutil
 
 DOWNLOAD_DIR = os.path.expanduser('~/Downloads')
-EXPERIMENTS_DIR = 'evaluation/experiments/quality'
+EXPERIMENTS_DIRS = [
+    'evaluation/experiments/quality',
+    'evaluation/experiments/filter/quality',
+]
+METHOD_DIRS = {'neural_render', 'path_tracing'}
 IMAGES_DIR = 'data/images'
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
 
-def find_experiments(root):
-    for dirpath, _, filenames in os.walk(root):
-        for filename in filenames:
-            if filename.endswith('.json'):
-                yield os.path.join(dirpath, filename)
+def find_experiments(roots):
+    for root in roots:
+        for dirpath, _, filenames in os.walk(root):
+            if os.path.basename(dirpath) not in METHOD_DIRS:
+                continue
+            for filename in filenames:
+                if filename.endswith('.json'):
+                    yield os.path.join(dirpath, filename)
 
 
 def main():
-    for experiment_path in find_experiments(EXPERIMENTS_DIR):
+    for experiment_path in find_experiments(EXPERIMENTS_DIRS):
         with open(experiment_path) as f:
             experiment = json.load(f)
 
