@@ -364,3 +364,257 @@ def plot_speedups(ax, timings, speedup_col, colors, add_labels=False):
     ax.axvspan(0, 1, color='lightgray', alpha=0.5, zorder=0)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.set_xlabel('Speedup')
+
+
+def read_quality_results(dir_path):
+    results = {}
+    for filename in os.listdir(os.path.join(dir_path, 'path_tracing')):
+        if filename.startswith('turntable'):
+            _, angle, volume, extinction, tf = filename[:-4].rsplit('_', 4)
+            key = volume, int(angle), int(extinction), int(tf)
+        else:
+            volume, extinction, tf = filename[:-4].rsplit('_', 2)
+            key = volume, int(extinction), int(tf)
+        results[key] = {
+            'path_tracing': pd.read_csv(
+                os.path.join(dir_path, 'path_tracing', filename)
+            ),
+            'neural_render': pd.read_csv(
+                os.path.join(dir_path, 'neural_render', filename)
+            ),
+        }
+    return results
+
+
+def plot_quality_metrics(ax, results, volume, extinction, transfer_function, metric):
+    pt = results[(volume, extinction, transfer_function)]['path_tracing']
+    nr = results[(volume, extinction, transfer_function)]['neural_render']
+    runs = len(pt['run'].unique())
+
+    # Use the smallest run size to handle timing differences
+    min_n_pt = pt.groupby('run').size().min()
+    min_n_nr = nr.groupby('run').size().min()
+    n = min(min_n_pt, min_n_nr)
+
+    # Trim each run to n rows, then concatenate
+    pt = pd.concat([grp.iloc[:n] for _, grp in pt.groupby('run')]).reset_index(
+        drop=True
+    )
+    nr = pd.concat([grp.iloc[:n] for _, grp in nr.groupby('run')]).reset_index(
+        drop=True
+    )
+
+    times = pt[pt['run'] == pt['run'].unique()[0]]['time'].to_numpy()
+
+    stats_pt = pt[metric].to_numpy().reshape(runs, n)
+    stats_nr = nr[metric].to_numpy().reshape(runs, n)
+
+    mu_pt = stats_pt.mean(axis=0)
+    mu_nr = stats_nr.mean(axis=0)
+    se_pt = stats_pt.std(axis=0) / np.sqrt(runs)
+    se_nr = stats_nr.std(axis=0) / np.sqrt(runs)
+
+    ax.plot(times, mu_pt, label='Path Tracing', c=colors[2])
+    ax.fill_between(times, mu_pt - se_pt, mu_pt + se_pt, color=colors[2], alpha=0.2)
+    ax.plot(times, mu_nr, label='Neural Render', c=colors[6])
+    ax.fill_between(times, mu_nr - se_nr, mu_nr + se_nr, color=colors[2], alpha=0.2)
+
+
+def plot_quality_metrics_full(results, volume, extinction, transfer_function, metric):
+    fig, ax = plt.subplots(1, 2, figsize=(8, 3), sharey=True)
+
+    experiment = volume, extinction, transfer_function
+    plot_quality_metrics(ax[0], results, *experiment, f'{metric}_global')
+    plot_quality_metrics(ax[1], results, *experiment, f'{metric}_indirect')
+
+    ax[0].set_title(f'Global {metric.upper()}')
+    ax[0].set_xlabel('Time [s]')
+    ax[0].set_ylabel(metric.upper())
+    ax[1].set_title(f'Indirect {metric.upper()}')
+    ax[1].set_xlabel('Time [s]')
+
+    legend = ax[0].legend(
+        loc='lower center',
+        bbox_to_anchor=(1, -0.35),
+        ncol=2,
+        borderaxespad=0,
+    )
+    set_legend_style(legend)
+
+    plt.show()
+
+
+def plot_quality_metrics_turntable(ax, results, metric):
+    angles = sorted({angle for _, angle, _, _ in results.keys()})
+    times = [0.5, 10]
+
+    mu_pt = np.zeros((len(angles), len(times)))
+    mu_nr = np.zeros((len(angles), len(times)))
+    se_pt = np.zeros((len(angles), len(times)))
+    se_nr = np.zeros((len(angles), len(times)))
+
+    for i, angle in enumerate(angles):
+        pt = results[('chameleon', angle, 200, 3)]['path_tracing']
+        nr = results[('chameleon', angle, 200, 3)]['neural_render']
+        runs = len(pt['run'].unique())
+
+        for j, time in enumerate(times):
+            # Find the closest time entry for each run (there are some time variations)
+            stats_pt = pt.groupby('run').apply(
+                lambda g: g.iloc[(g['time'] - time).abs().argmin()][metric]
+            )
+            stats_nr = nr.groupby('run').apply(
+                lambda g: g.iloc[(g['time'] - time).abs().argmin()][metric]
+            )
+
+            mu_pt[i, j] = stats_pt.mean()
+            mu_nr[i, j] = stats_nr.mean()
+            se_pt[i, j] = stats_pt.std() / np.sqrt(runs)
+            se_nr[i, j] = stats_nr.std() / np.sqrt(runs)
+
+    for j, time in enumerate(times):
+        ls = '--' if j == 0 else '-'
+        ax.plot(
+            angles,
+            mu_pt[:, j],
+            label=f'Path Tracing {time}s',
+            ls=ls,
+            c=colors[2],
+            marker='o',
+            markerfacecolor='white',
+        )
+        ax.fill_between(
+            angles,
+            mu_pt[:, j] - se_pt[:, j],
+            mu_pt[:, j] + se_pt[:, j],
+            alpha=0.2,
+            color=colors[2],
+            edgecolor=None,
+        )
+        ax.plot(
+            angles,
+            mu_nr[:, j],
+            label=f'Neural Render {time}s',
+            ls=ls,
+            c=colors[6],
+            marker='o',
+            markerfacecolor='white',
+        )
+        ax.fill_between(
+            angles,
+            mu_nr[:, j] - se_nr[:, j],
+            mu_nr[:, j] + se_nr[:, j],
+            alpha=0.2,
+            color=colors[6],
+            edgecolor=None,
+        )
+
+
+def plot_quality_metrics_turntable_full(results):
+    angles = sorted({angle for _, angle, _, _ in results.keys()})
+
+    fig, ax = plt.subplots(3, 2, figsize=(7, 9), sharex=True, sharey='row')
+    for i, metric in enumerate(['ssim', 'lpips', 'psnr']):
+        plot_quality_metrics_turntable(ax[i, 0], results, f'{metric}_global')
+        plot_quality_metrics_turntable(ax[i, 1], results, f'{metric}_indirect')
+
+        if i == 0:
+            ax[i, 0].annotate(
+                'Global Illumination',
+                xy=(0.5, 1.05),
+                xycoords='axes fraction',
+                ha='center',
+                va='bottom',
+                fontsize=9,
+            )
+            ax[i, 1].annotate(
+                'Indirect Illumination',
+                xy=(0.5, 1.05),
+                xycoords='axes fraction',
+                ha='center',
+                va='bottom',
+                fontsize=9,
+            )
+
+        if i == 2:
+            ax[i, 0].set_xlabel('Angle [°]')
+            ax[i, 1].set_xlabel('Angle [°]')
+            ax[i, 0].set_xticks(angles[::2])
+            ax[i, 1].set_xticks(angles[::2])
+        else:
+            ax[i, 0].set_xticks([])
+            ax[i, 1].set_xticks([])
+
+        ax[i, 0].set_ylabel(metric.upper())
+        ax[i, 0].set_xlim(angles[0], angles[-1])
+        ax[i, 1].set_xlim(angles[0], angles[-1])
+        ax[i, 1].annotate(
+            metric.upper(),
+            xy=(1.05, 0.5),
+            xycoords='axes fraction',
+            ha='left',
+            va='center',
+            rotation=270,
+            fontsize=9,
+        )
+
+    legend = ax[i, 0].legend(ncols=4, loc='upper center', bbox_to_anchor=(1, -0.2))
+    set_legend_style(legend)
+
+    plt.subplots_adjust(wspace=0, hspace=0)
+    plt.show()
+
+
+def compute_metric(results, volume, extinction, transfer_function, column, time):
+    pt = results[(volume, extinction, transfer_function)]['path_tracing']
+    nr = results[(volume, extinction, transfer_function)]['neural_render']
+
+    # Find the closest time entry for each run (there are some time variations)
+    pt = pt.groupby('run').apply(lambda df: df.iloc[(df['time'] - time).abs().argmin()])
+    nr = nr.groupby('run').apply(lambda df: df.iloc[(df['time'] - time).abs().argmin()])
+
+    pt = pt[[column]]
+    nr = nr[[column]]
+
+    mu_pt = pt.mean().to_numpy()[0].item()
+    mu_nr = nr.mean().to_numpy()[0].item()
+    se_pt = (pt.std().to_numpy()[0] / np.sqrt(len(pt))).item()
+    se_nr = (nr.std().to_numpy()[0] / np.sqrt(len(nr))).item()
+
+    return (mu_pt, se_pt), (mu_nr, se_nr)
+
+
+def print_quality_metrics(results, volume, time, mode):
+    extinctions = sorted({extinction for _, extinction, _ in results.keys()})
+    transfer_functions = sorted(
+        {transfer_function for _, _, transfer_function in results.keys()}
+    )
+
+    print(f'Volume: {volume} ({mode})')
+    print(
+        f'{"Ext.":<5} {"TF":<4} '
+        f'{"SSIM PT":<18} {"SSIM NR":<18} '
+        f'{"LPIPS PT":<18} {"LPIPS NR":<18} '
+        f'{"PSNR PT":<15} {"PSNR NR":<15}'
+    )
+    for extinction in extinctions:
+        for transfer_function in transfer_functions:
+            pt_ssim, nr_ssim = compute_metric(
+                results, volume, extinction, transfer_function, f'ssim_{mode}', time
+            )
+            pt_lpips, nr_lpips = compute_metric(
+                results, volume, extinction, transfer_function, f'lpips_{mode}', time
+            )
+            pt_psnr, nr_psnr = compute_metric(
+                results, volume, extinction, transfer_function, f'psnr_{mode}', time
+            )
+
+            print(
+                f'{extinction:<5} {transfer_function:<4} '
+                f'{pt_ssim[0]:.4f} ± {pt_ssim[1]:.4f}    '
+                f'{nr_ssim[0]:.4f} ± {nr_ssim[1]:.4f}    '
+                f'{pt_lpips[0]:.4f} ± {pt_lpips[1]:.4f}    '
+                f'{nr_lpips[0]:.4f} ± {nr_lpips[1]:.4f}    '
+                f'{pt_psnr[0]:.2f} ± {pt_psnr[1]:.2f}    '
+                f'{nr_psnr[0]:.2f} ± {nr_psnr[1]:.2f}'
+            )
