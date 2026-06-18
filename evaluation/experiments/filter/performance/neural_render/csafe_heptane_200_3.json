@@ -5,7 +5,7 @@
     "transfer_function": "data/volumes/csafe_heptane/3.json",
     "file_server": "localhost:8000",
     "radiance": "data/radiance/filter_performance_neural_render_csafe_heptane_200_3.zip",
-    "model": "data/models/filter/performance/neural_render/csafe_heptane_200_3.zip",
+    "model": "data/models/filter/performance/csafe_heptane_200_3.zip",
     "benchmark_time": "2m",
     "interval": "1s",
     "vpt_config": {
@@ -21,7 +21,7 @@
         "filterEnabled": true,
         "filterSigma": 5,
         "filterKSigma": 2,
-        "filterThreshold": 0.1,
+        "filterThreshold": 0.3,
         "camera_preset": "turntable_heptane"
     }
 }

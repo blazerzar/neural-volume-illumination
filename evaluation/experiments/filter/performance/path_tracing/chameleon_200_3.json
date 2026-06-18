@@ -19,7 +19,7 @@
         "filterEnabled": false,
         "filterSigma": 5,
         "filterKSigma": 2,
-        "filterThreshold": 0.1,
+        "filterThreshold": 0.3,
         "camera_preset": "turntable"
     }
 }
