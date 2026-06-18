@@ -1,7 +1,7 @@
 {
     "name": "quality_front_neural_render_marmoset_neurons_1000_2",
     "type": "quality",
-    "seed": 1,
+    "seed": 3,
     "volume": "data/volumes/marmoset_neurons/marmoset_neurons_1024x1024x314_497x497x1500_uint8.raw",
     "transfer_function": "data/volumes/marmoset_neurons/2.json",
     "file_server": "localhost:8000",

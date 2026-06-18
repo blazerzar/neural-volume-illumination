@@ -1,7 +1,7 @@
 {
     "name": "quality_front_neural_render_miranda_80_1",
     "type": "quality",
-    "seed": 1,
+    "seed": 2,
     "volume": "data/volumes/miranda/miranda_512x512x512_1x1x1_uint8.raw",
     "transfer_function": "data/volumes/miranda/1.json",
     "file_server": "localhost:8000",
