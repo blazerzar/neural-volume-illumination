@@ -1,1 +1,2 @@
 *.png binary
+**/*.ipynb linguist-vendored
