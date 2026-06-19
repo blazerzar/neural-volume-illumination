@@ -1,0 +1,25 @@
+{
+    "name": "high_samples_path_tracing_chameleon_1000_3",
+    "type": "performance",
+    "volume": "data/volumes/chameleon/chameleon_512x512x540_1x1x1_uint8.raw",
+    "transfer_function": "data/volumes/chameleon/3.json",
+    "file_server": "localhost:8000",
+    "benchmark_time": "1m",
+    "interval": "1s",
+    "vpt_config": {
+        "resolution": 512,
+        "extinction": 1000,
+        "anisotropy": 0,
+        "samples": 20,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": false,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": false,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "turntable"
+    }
+}
