@@ -1,0 +1,27 @@
+{
+    "name": "samples_neural_render_chameleon_200_3_s16",
+    "type": "image",
+    "seed": 1,
+    "volume": "data/volumes/chameleon/chameleon_512x512x540_1x1x1_uint8.raw",
+    "transfer_function": "data/volumes/chameleon/3.json",
+    "file_server": "localhost:8000",
+    "model": "data/models/quality/chameleon_200_3.zip",
+    "rendering_time": "1s",
+    "display_modes": ["global", "indirect"],
+    "vpt_config": {
+        "resolution": 512,
+        "extinction": 200,
+        "anisotropy": 0,
+        "samples": 16,
+        "bounces": 50,
+        "steps": 2000,
+        "accumulate": false,
+        "stochastic": true,
+        "background": "#000000",
+        "filterEnabled": false,
+        "filterSigma": 5,
+        "filterKSigma": 2,
+        "filterThreshold": 0.1,
+        "camera_preset": "front"
+    }
+}
