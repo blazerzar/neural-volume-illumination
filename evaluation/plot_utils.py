@@ -30,3 +30,15 @@ def set_legend_style(legend):
     frame.set_boxstyle('Square', pad=0)
     frame.set_facecolor('white')
     frame.set_alpha(1.0)
+
+
+def set_thesis_plot_style():
+    plt.rcParams['text.usetex'] = True
+    plt.rcParams['font.family'] = 'CMU Serif'
+    plt.rcParams['axes.labelsize'] = 10
+    plt.rcParams['legend.fontsize'] = 10
+    plt.rcParams['lines.linewidth'] = 0.8
+    plt.rcParams['xtick.direction'] = 'in'
+    plt.rcParams['ytick.direction'] = 'in'
+    plt.rcParams['xtick.major.width'] = 0.5
+    plt.rcParams['ytick.major.width'] = 0.5

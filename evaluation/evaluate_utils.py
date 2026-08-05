@@ -45,20 +45,22 @@ def plot_model_loss(
     ax.axhline(
         y=np.mean(baselines),
         **styles['baseline'],
-        label=(f'Baseline {label}' if label else None),
+        label=(f'{label} baseline' if label else None),
     )
 
 
-def plot_model_loss_all(results, volume, ylims, layers=None, show_legend=True):
-    _, ax = plt.subplots(3, 3, figsize=(10, 10))
+def plot_model_loss_all(
+    results, volume, ylims, layers=None, show_legend=True, figsize=(10, 10)
+):
+    fig, ax = plt.subplots(3, 3, figsize=figsize)
 
     results = [results] if layers is None else [results[layer] for layer in layers]
     extinctions = sorted({ext for _, ext, _ in results[0].keys()})
     transfer_functions = sorted({tf for _, _, tf in results[0].keys()})
 
     baseline_styles = [
-        dict(color=colors[2], linestyle='-', linewidth=1.5, zorder=1),
-        dict(color=colors[6], linestyle='--', linewidth=1.5, zorder=1),
+        dict(color=colors[3], linestyle='-', linewidth=0.8, zorder=1),
+        dict(color=colors[7], linestyle='--', linewidth=0.8, zorder=1),
     ]
 
     for i, tf in enumerate(transfer_functions):
@@ -90,35 +92,36 @@ def plot_model_loss_all(results, volume, ylims, layers=None, show_legend=True):
                     xycoords='axes fraction',
                     ha='center',
                     va='bottom',
-                    fontsize=9,
+                    fontsize=12,
                 )
             if j == 2:
                 ax[i, j].annotate(
-                    'Transfer Function ' + str(tf),
+                    'TF ' + str(tf),
                     xy=(1.05, 0.5),
                     xycoords='axes fraction',
                     ha='left',
                     va='center',
                     rotation=270,
-                    fontsize=9,
+                    fontsize=12,
                 )
 
-    ax[2, 1].set_xlabel('Frame')
-    ax[1, 0].set_ylabel('Loss')
+    ax[2, 1].set_xlabel('Frame', labelpad=10)
+    ax[1, 0].set_ylabel('Loss', labelpad=10)
 
     if show_legend:
         handles, labels = ax[2, 1].get_legend_handles_labels()
-        order = ['Front', 'Turntable', 'Baseline Front', 'Baseline Turntable']
+        order = ['Front', 'Turntable', 'Front baseline', 'Turntable baseline']
         ordered = [
             (h, la) for name in order for h, la in zip(handles, labels) if la == name
         ]
         h_sorted, l_sorted = zip(*ordered)
         legend = ax[2, 1].legend(
-            h_sorted, l_sorted, ncol=4, bbox_to_anchor=(0.5, -0.15), loc='upper center'
+            h_sorted, l_sorted, ncol=4, bbox_to_anchor=(0.5, -0.4), loc='upper center'
         )
         set_legend_style(legend)
 
     plt.subplots_adjust(wspace=0, hspace=0)
+    return fig, ax
 
 
 def read_ground_truth_zip(file_path, array_file):
