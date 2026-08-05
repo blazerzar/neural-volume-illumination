@@ -116,11 +116,91 @@ def plot_model_loss_all(
         ]
         h_sorted, l_sorted = zip(*ordered)
         legend = ax[2, 1].legend(
-            h_sorted, l_sorted, ncol=4, bbox_to_anchor=(0.5, -0.4), loc='upper center'
+            h_sorted,
+            l_sorted,
+            ncol=4,
+            bbox_to_anchor=(0.5, -0.4),
+            loc='upper center',
+            columnspacing=1,
         )
         set_legend_style(legend)
 
     plt.subplots_adjust(wspace=0, hspace=0)
+
+    return fig, ax
+
+
+def plot_online_loss(
+    ax,
+    results,
+    experiment,
+    smoothing_window=5,
+    label=None,
+    styles=None,
+):
+    times = results[experiment]['time_ms'] / 1000
+    values = results[experiment]['val_loss']
+    values = np.convolve(
+        values, np.ones(smoothing_window) / smoothing_window, mode='valid'
+    )
+    offset = (smoothing_window - 1) // 2
+    times = times[offset : offset + len(values)]
+    ax.plot(times, values, label=label, **(styles or {}))
+
+
+def plot_online_loss_tf(results, volume, tf, ylim, figsize):
+    fig, ax = plt.subplots(1, 3, figsize=figsize)
+
+    cameras = sorted(results.keys())
+    extinctions = sorted({ext for _, ext, _ in results[cameras[0]]})
+
+    for i, extinction in enumerate(extinctions):
+        for j, camera in enumerate(cameras):
+            plot_online_loss(
+                ax[i],
+                results[camera],
+                (volume, extinction, tf),
+                label=camera.capitalize(),
+                styles={'color': 'k', 'linestyle': ('-', '--')[j]},
+            )
+
+        ax[i].set_xlim(0, 120)
+        ax[i].set_ylim(ylim)
+        ax[i].set_xticks([0, 30, 60, 90])
+        if i > 0:
+            ax[i].set_yticks([])
+        ax[i].annotate(
+            'Extinction ' + str(extinction),
+            xy=(0.5, 1.05),
+            xycoords='axes fraction',
+            ha='center',
+            va='bottom',
+            fontsize=12,
+        )
+        if i == 2:
+            ax[i].annotate(
+                'TF ' + str(tf),
+                xy=(1.05, 0.5),
+                xycoords='axes fraction',
+                ha='left',
+                va='center',
+                rotation=270,
+                fontsize=12,
+            )
+
+    ax[1].set_xlabel('Time [s]', labelpad=10)
+    ax[0].set_ylabel('Loss', labelpad=10)
+
+    handles, labels = ax[2].get_legend_handles_labels()
+    legend = ax[1].legend(
+        handles,
+        labels,
+        ncol=4,
+        bbox_to_anchor=(0.5, -0.4),
+        loc='upper center',
+    )
+    set_legend_style(legend)
+
     return fig, ax
 
 

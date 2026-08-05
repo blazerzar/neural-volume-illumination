@@ -2,6 +2,7 @@ import os
 
 from evaluate_utils import (
     plot_model_loss_all,
+    plot_online_loss_tf,
     read_model_results,
 )
 from plot_utils import set_thesis_plot_style
@@ -14,6 +15,7 @@ def main():
     set_thesis_plot_style()
 
     model_plots()
+    online_plots()
 
 
 def model_plots():
@@ -41,10 +43,29 @@ def model_plots():
             layers=['front', 'turntable'],
             figsize=figsize,
         )
-        fig.savefig(
-            os.path.join(PLOTS_DIR, f'model_{volume}.pdf'),
-            bbox_inches='tight',
-        )
+        fig.subplots_adjust(wspace=0, hspace=0, bottom=0.18, top=0.93, right=0.93)
+        fig.savefig(os.path.join(PLOTS_DIR, f'model_{volume}.pdf'))
+
+
+def online_plots():
+    dir = os.path.join('evaluation', 'results', 'online')
+
+    results = {}
+    for subdir in os.listdir(dir):
+        subdir_path = os.path.join(dir, subdir)
+        if not os.path.isdir(subdir_path):
+            continue
+        results[subdir] = read_model_results(subdir_path)
+
+    fig, _ = plot_online_loss_tf(
+        results,
+        'chameleon',
+        3,
+        (0.01, 0.125),
+        figsize=(TEXT_WIDTH, TEXT_WIDTH * 0.45),
+    )
+    fig.subplots_adjust(wspace=0, bottom=0.36, right=0.93)
+    fig.savefig(os.path.join(PLOTS_DIR, 'online_chameleon.pdf'))
 
 
 if __name__ == '__main__':
