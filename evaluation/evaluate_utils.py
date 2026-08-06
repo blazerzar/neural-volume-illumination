@@ -442,9 +442,9 @@ def plot_speedups(ax, timings, speedup_col, colors, add_labels=False):
                 height=0.22,
                 label=str(extinction) if (add_labels and i == 0) else None,
                 edgecolor='black',
-                linewidth=0.8,
+                linewidth=0.5,
             )
-    ax.axvspan(0, 1, color='lightgray', alpha=0.5, zorder=0)
+    ax.axvspan(0, 1, facecolor='lightgray', alpha=0.4, zorder=0, edgecolor='none')
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.set_xlabel('Speedup')
 

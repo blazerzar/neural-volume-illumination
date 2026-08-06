@@ -2,16 +2,21 @@ import os
 
 import numpy as np
 import pandas as pd
-from evaluate_utils import read_model_results
+from evaluate_utils import (
+    compute_performance_speedup,
+    read_model_results,
+    read_performance_results,
+)
 
 
 def main():
     training_tables()
+    speedup_tables()
 
 
 def training_tables():
     times = pd.DataFrame(
-        columns=['Volume', 'Extinction', 'tf', 'camera', 'type', 'time']
+        columns=['Dataset', 'Extinction', 'tf', 'camera', 'type', 'time']
     )
     col = {'model': 'time_ms', 'online': 'train_time_ms'}
 
@@ -25,7 +30,7 @@ def training_tables():
             for (volume, extinction, tf), df in results.items():
                 new_rows = pd.DataFrame(
                     {
-                        'Volume': volume,
+                        'Dataset': volume,
                         'Extinction': extinction,
                         'tf': tf,
                         'camera': subdir,
@@ -36,7 +41,7 @@ def training_tables():
                 times = pd.concat([times, new_rows], ignore_index=True)
 
     stats = (
-        times.groupby(['Volume', 'Extinction', 'type'])['time']
+        times.groupby(['Dataset', 'Extinction', 'type'])['time']
         .agg(['mean', 'sem'])
         .unstack('type')
     )
@@ -49,17 +54,19 @@ def training_tables():
         s = stats[('sem', kind)].map('{:.2f}'.format)
         table[label] = '$' + m + r' \pm ' + s + '$'
     table = (
-        table.reset_index().sort_values(['Volume', 'Extinction']).reset_index(drop=True)
+        table.reset_index()
+        .sort_values(['Dataset', 'Extinction'])
+        .reset_index(drop=True)
     )
     table['Extinction'] = table['Extinction'].map('${:d}$'.format)
 
-    # Only show volume once, split by \cline
-    vol = table['Volume']
+    # Only show dataset once, split by \cline
+    vol = table['Dataset']
     label = r'\textsf{' + vol.str.replace('_', ' ') + '}'
     rule = pd.Series(
         np.where(np.arange(len(vol)), r'\cline{1-4}' + '\n', ''), index=vol.index
     )
-    table['Volume'] = (rule + label).where(~vol.duplicated(), '')
+    table['Dataset'] = (rule + label).where(~vol.duplicated(), '')
 
     latex = table.to_latex(
         index=False,
@@ -68,29 +75,164 @@ def training_tables():
         label='tab:times',
         caption=r'\captiontimes{}',
     )
-    latex = postprocess_latex_table(latex)
-    print(latex)
+    latex = postprocess_latex_table(
+        latex, ['Dataset', 'Extinction', 'Offline', 'Online']
+    )
+    print(latex, '\n')
 
 
-def postprocess_latex_table(latex):
+def speedup_tables():
+    dir = os.path.join('evaluation', 'results', 'performance')
+    results = {}
+    for subdir in os.listdir(dir):
+        subdir_path = os.path.join(dir, subdir)
+        if not os.path.isdir(subdir_path):
+            continue
+        results[subdir] = read_performance_results(subdir_path)
+
+    timings = compute_performance_speedup(results)
+    stage_speedup_table(timings)
+    frame_speedup_table(timings)
+
+
+def stage_speedup_table(timings):
+    cols = pd.MultiIndex.from_tuples(
+        [
+            ('', 'Dataset'),
+            ('', 'Ext.'),
+            ('Ours', '$L_d$'),
+            ('Ours', '$L_i$'),
+            ('Ours', '$L$'),
+            ('PT', '$L_d$'),
+            ('PT', '$L_i$'),
+            ('PT', '$L$'),
+            ('', '$S_{L_i}$'),
+            ('', '$S_L$'),
+        ]
+    )
+    num = timings.drop(columns='volume').apply(pd.to_numeric, errors='coerce')
+    table = pd.DataFrame('', index=timings.index, columns=cols)
+
+    name = shorten_volume_name(timings.volume.astype(str))
+    bold = name == 'Overall'
+    first = ~name.duplicated()
+    sep = first.copy()
+    sep.iloc[0] = False
+    dataset = (
+        (r'\textsf{' + name.str.replace('_', ' ') + '}')
+        .mask(bold, r'\textbf{Overall}')
+        .where(first, '')
+    )
+    table[('', 'Dataset')] = (r'\cline{1-10} ' + dataset).where(sep, dataset)
+    table[('', 'Ext.')] = num.extinction.map('{:.0f}'.format).where(
+        num.extinction.notna(), ''
+    )
+
+    vals = pd.DataFrame(index=timings.index, columns=cols[2:])
+    for grp, k in [('Ours', 'ours'), ('PT', 'pt')]:
+        for st in 'di':
+            vals[(grp, f'$L_{st}$')] = num[f'{k}_L{st}'].map('{:.2f}'.format)
+        vals[(grp, '$L$')] = (num[f'{k}_Ld'] + num[f'{k}_Li']).map('{:.2f}'.format)
+    vals[('', '$S_{L_i}$')] = num.speedup_Li.map('{:.2f}'.format)
+    vals[('', '$S_L$')] = num.speedup_L.map('{:.2f}'.format)
+    table[vals.columns] = np.where(
+        bold.values[:, None], r'$\mathbf{' + vals + '}$', '$' + vals + '$'
+    )
+
+    latex = table.to_latex(
+        index=False,
+        escape=False,
+        column_format=r'l@{\hspace{7pt}}r|'
+        + '|'.join([r'c@{\hspace{7pt}}c@{\hspace{7pt}}c'] * 2)
+        + '|cc',
+        multicolumn=True,
+        multicolumn_format='c',
+        caption=r'\captionspeedupsL{}',
+        label='tab:speedups-L',
+    )
+    latex = postprocess_latex_table(latex, ['Dataset', 'Ext.', 'Ours', 'PT'])
+    print(latex, '\n')
+
+
+def frame_speedup_table(timings):
+    cols = pd.MultiIndex.from_tuples(
+        [
+            ('', 'Dataset'),
+            ('', 'Ext.'),
+            ('Ours', r'\multicolumn{2}{c}{Frame time}'),
+            ('Ours', 'SE1'),
+            ('Ours', 'FPS'),
+            ('PT', r'\multicolumn{2}{c}{Frame time}'),
+            ('PT', 'SE2'),
+            ('PT', 'FPS'),
+            ('', 'Speedup'),
+        ]
+    )
+    num = timings.drop(columns='volume').apply(pd.to_numeric, errors='coerce')
+    table = pd.DataFrame('', index=timings.index, columns=cols)
+
+    name = shorten_volume_name(timings.volume.astype(str))
+    bold = name == 'Overall'
+    first = ~name.duplicated()
+    sep = first.copy()
+    sep.iloc[0] = False
+    dataset = (
+        (r'\textsf{' + name.str.replace('_', ' ') + '}')
+        .mask(bold, r'\textbf{Overall}')
+        .where(first, '')
+    )
+    table[('', 'Dataset')] = (r'\cline{1-9} ' + dataset).where(sep, dataset)
+    table[('', 'Ext.')] = num.extinction.map('{:.0f}'.format).where(
+        num.extinction.notna(), ''
+    )
+
+    def cell(v):
+        s = v.map('{:.2f}'.format)
+        return ('$' + s + '$').mask(bold, r'$\mathbf{' + s + '}$').where(v.notna(), '')
+
+    for grp, k, se_col in [('Ours', 'ours', 'SE1'), ('PT', 'pt', 'SE2')]:
+        se = num[f'{k}_ft_se'].mask(bold)
+        table[(grp, r'\multicolumn{2}{c}{Frame time}')] = cell(num[f'{k}_ft'])
+        table[(grp, se_col)] = (r'$\pm\,' + se.map('{:.2f}'.format) + '$').where(
+            se.notna(), ''
+        )
+        table[(grp, 'FPS')] = cell(num[f'{k}_fps'])
+
+    table[('', 'Speedup')] = cell(num.speedup_ft)
+
+    latex = table.to_latex(
+        index=False,
+        escape=False,
+        column_format=r'lr|r@{\hspace{5pt}}lc|r@{\hspace{5pt}}lc|c',
+        multicolumn=True,
+        multicolumn_format='c',
+        caption=r'\captionspeedupsFT{}',
+        label='tab:speedups-ft',
+    )
+    latex = latex.replace(' & SE1', '').replace(' & SE2', '')
+    latex = postprocess_latex_table(latex, ['Dataset', 'Ext.', 'Ours', 'PT', 'Speedup'])
+    print(latex, '\n')
+
+
+def postprocess_latex_table(latex, bold_columns):
     """
     Move caption and label to the bottom of the table, add centering and
     footnotesize, bold column names, and indent lines.
     """
+    for col in bold_columns:
+        latex = latex.replace(col, r'\textbf{' + col + '}')
     lines = latex.splitlines()
 
-    header_line = lines.index(r'\toprule') + 1
-    cols = lines[header_line].replace(r' \\', '').split(' & ')
-    cols = [r'\textbf{' + col + '}' for col in cols]
-    lines[header_line] = ' & '.join(cols) + r' \\'
-
-    caption_line = lines[1]
-    label_line = lines[2]
+    caption_i = lines.index(next(l for l in lines if l.startswith(r'\caption')))
+    label_i = lines.index(next(l for l in lines if l.startswith(r'\label')))
+    caption_line = lines[caption_i]
+    label_line = lines[label_i]
+    lines = [l for i, l in enumerate(lines) if i not in [caption_i, label_i]]
 
     lines = (
         lines[:1]
         + [r'\centering', r'\footnotesize']
-        + lines[3:-1]
+        + lines[1:-1]
         + [caption_line, label_line]
         + lines[-1:]
     )
@@ -100,6 +242,14 @@ def postprocess_latex_table(latex):
         lines[i] = indent * ' ' + lines[i]
 
     return '\n'.join(lines)
+
+
+def shorten_volume_name(name):
+    return (
+        name.replace('csafe_heptane', 'heptane')
+        .replace('mri_ventricles', 'ventricles')
+        .replace('marmoset_neurons', 'neurons')
+    )
 
 
 if __name__ == '__main__':
