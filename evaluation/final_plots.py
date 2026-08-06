@@ -36,7 +36,7 @@ def model_plots():
     figsize = (TEXT_WIDTH, TEXT_WIDTH * 0.9)
 
     for volume, ylim in ylims.items():
-        fig, _ = plot_model_loss_all(
+        fig, ax = plot_model_loss_all(
             results,
             volume,
             ylim,
@@ -44,6 +44,37 @@ def model_plots():
             figsize=figsize,
         )
         fig.subplots_adjust(wspace=0, hspace=0, bottom=0.18, top=0.93, right=0.93)
+
+        if volume == 'chameleon':
+            from plot_utils import colors
+
+            xs = [80, 135]
+            ys = [
+                results['turntable']['chameleon', 200, 3].iloc[80]['val_loss'],
+                results['turntable']['chameleon', 200, 3].iloc[135]['val_loss'],
+            ]
+            tags = ['80', '135']
+
+            ax[2, 1].scatter(
+                xs,
+                ys,
+                color='black',
+                marker='o',
+                facecolors='white',
+                s=15,
+                zorder=10,
+                linewidth=0.8,
+            )
+            for x, y, tag, xytext in zip(xs, ys, tags, [(4, -10), (10, 3)]):
+                ax[2, 1].annotate(
+                    tag,
+                    xy=(x, y),
+                    xytext=xytext,
+                    textcoords='offset points',
+                    ha='center',
+                    fontsize=8,
+                )
+
         fig.savefig(os.path.join(PLOTS_DIR, f'model_{volume}.pdf'))
 
 
@@ -61,7 +92,7 @@ def online_plots():
         results,
         'chameleon',
         3,
-        (0.01, 0.125),
+        (0, 0.125),
         figsize=(TEXT_WIDTH, TEXT_WIDTH * 0.45),
     )
     fig.subplots_adjust(wspace=0, bottom=0.36, right=0.93)

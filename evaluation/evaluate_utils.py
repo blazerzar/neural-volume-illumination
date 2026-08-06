@@ -82,7 +82,7 @@ def plot_model_loss_all(
             if i < 2:
                 ax[i, j].set_xticks([])
             else:
-                ax[i, j].set_xticks([0, 100, 200, 300, 400])
+                ax[i, j].set_xticks([100, 200, 300, 400])
             if j > 0:
                 ax[i, j].set_yticks([])
             if i == 0:
@@ -166,7 +166,7 @@ def plot_online_loss_tf(results, volume, tf, ylim, figsize):
 
         ax[i].set_xlim(0, 120)
         ax[i].set_ylim(ylim)
-        ax[i].set_xticks([0, 30, 60, 90])
+        ax[i].set_xticks([30, 60, 90])
         if i > 0:
             ax[i].set_yticks([])
         ax[i].annotate(
