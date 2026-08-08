@@ -55,12 +55,12 @@ def plot_model_loss_all(
     fig, ax = plt.subplots(3, 3, figsize=figsize)
 
     results = [results] if layers is None else [results[layer] for layer in layers]
-    extinctions = sorted({ext for _, ext, _ in results[0].keys()})
-    transfer_functions = sorted({tf for _, _, tf in results[0].keys()})
+    extinctions = sorted({ext for _, ext, _ in results[0]})
+    transfer_functions = sorted({tf for _, _, tf in results[0]})
 
     baseline_styles = [
-        dict(color=colors[3], linestyle='-', linewidth=0.8, zorder=1),
-        dict(color=colors[7], linestyle='--', linewidth=0.8, zorder=1),
+        {'color': colors[3], 'linestyle': '-', 'linewidth': 0.8, 'zorder': 1},
+        {'color': colors[7], 'linestyle': '-', 'linewidth': 0.8, 'zorder': 1},
     ]
 
     for i, tf in enumerate(transfer_functions):
@@ -72,7 +72,7 @@ def plot_model_loss_all(
                     (volume, extinction, tf),
                     label=layers[k].capitalize() if layers else None,
                     styles={
-                        'plot': dict(color='k', linestyle=('-', '--')[k]),
+                        'plot': {'color': 'k', 'linestyle': ('-', '--')[k]},
                         'baseline': baseline_styles[k],
                     },
                 )
@@ -384,7 +384,7 @@ def print_stage_timing(timings):
             )
             print(
                 f'{volume_label:<20} '
-                f'{str(row["extinction"]):<7} '
+                f'{row["extinction"]:<7} '
                 f'{f"{row['ours_Ld']:.2f} ± {row['ours_Ld_se']:.2f}":<16} '
                 f'{f"{row['ours_Li']:.2f} ± {row['ours_Li_se']:.2f}":<16} '
                 f'{row["ours_L"]:<10.2f} '
@@ -419,7 +419,7 @@ def print_frame_timing(timings):
             )
             print(
                 f'{volume_label:<20} '
-                f'{str(row["extinction"]):<7} '
+                f'{row["extinction"]:<7} '
                 f'{f"{row['ours_ft']:.2f} ± {row['ours_ft_se']:.2f}":<20} '
                 f'{f"{row['ours_fps']:.2f} ± {row['ours_fps_se']:.2f}":<20} '
                 f'{f"{row['pt_ft']:.2f} ± {row['pt_ft_se']:.2f}":<20} '
@@ -504,7 +504,7 @@ def plot_quality_metrics(ax, results, volume, extinction, transfer_function, met
 
 
 def plot_quality_metrics_full(results, volume, extinction, transfer_function, metric):
-    fig, ax = plt.subplots(1, 2, figsize=(8, 3), sharey=True)
+    _, ax = plt.subplots(1, 2, figsize=(8, 3), sharey=True)
 
     experiment = volume, extinction, transfer_function
     plot_quality_metrics(ax[0], results, *experiment, f'{metric}_global')
@@ -528,7 +528,7 @@ def plot_quality_metrics_full(results, volume, extinction, transfer_function, me
 
 
 def plot_quality_metrics_turntable(ax, results, metric):
-    angles = sorted({angle for _, angle, _, _ in results.keys()})
+    angles = sorted({angle for _, angle, _, _ in results})
     times = [0.5, 10]
 
     mu_pt = np.zeros((len(angles), len(times)))
@@ -544,10 +544,10 @@ def plot_quality_metrics_turntable(ax, results, metric):
         for j, time in enumerate(times):
             # Find the closest time entry for each run (there are some time variations)
             stats_pt = pt.groupby('run').apply(
-                lambda g: g.iloc[(g['time'] - time).abs().argmin()][metric]
+                lambda g, t=time: g.iloc[(g['time'] - t).abs().argmin()][metric]
             )
             stats_nr = nr.groupby('run').apply(
-                lambda g: g.iloc[(g['time'] - time).abs().argmin()][metric]
+                lambda g, t=time: g.iloc[(g['time'] - t).abs().argmin()][metric]
             )
 
             mu_pt[i, j] = stats_pt.mean()
@@ -594,9 +594,9 @@ def plot_quality_metrics_turntable(ax, results, metric):
 
 
 def plot_quality_metrics_turntable_full(results):
-    angles = sorted({angle for _, angle, _, _ in results.keys()})
+    angles = sorted({angle for _, angle, _, _ in results})
 
-    fig, ax = plt.subplots(3, 2, figsize=(7, 9), sharex=True, sharey='row')
+    _, ax = plt.subplots(3, 2, figsize=(7, 9), sharex=True, sharey='row')
     for i, metric in enumerate(['ssim', 'lpips', 'psnr']):
         plot_quality_metrics_turntable(ax[i, 0], results, f'{metric}_global')
         plot_quality_metrics_turntable(ax[i, 1], results, f'{metric}_indirect')
@@ -668,9 +668,9 @@ def compute_metric(results, volume, extinction, transfer_function, column, time)
 
 
 def print_quality_metrics(results, volume, time, mode):
-    extinctions = sorted({extinction for _, extinction, _ in results.keys()})
+    extinctions = sorted({extinction for _, extinction, _ in results})
     transfer_functions = sorted(
-        {transfer_function for _, _, transfer_function in results.keys()}
+        {transfer_function for _, _, transfer_function in results}
     )
 
     print(f'Volume: {volume} ({mode})')
