@@ -180,10 +180,10 @@ def plot_stage_speedup(results, speedup_colors, timings, volumes):
     ax[0].tick_params(axis='y', which='both', length=0)
     ax[1].tick_params(axis='y', which='both', length=0)
 
-    legend = fig.legend(
+    legend = ax[0].legend(
         loc='upper center',
         ncol=len(speedup_colors),
-        bbox_to_anchor=(0.5, 0.12),
+        bbox_to_anchor=(1, -0.22),
     )
     set_legend_style(legend)
 
@@ -256,7 +256,9 @@ def plot_quality_front(*experiment, nest=False):
             ax[i, 0].set_ylim(bottom=-0.01)
             ax[i, 1].set_ylim(bottom=-0.01)
 
-        ax[i, 0].set_ylabel(metric.upper())
+        ax[i, 0].set_ylabel(
+            rf'{metric.upper()} {("$\\uparrow$", "$\\downarrow$")[metric == "lpips"]}'
+        )
 
     fig.align_ylabels()
 
@@ -304,7 +306,9 @@ def plot_quality_turntable():
             ax[i, 0].set_xticks([])
             ax[i, 1].set_xticks([])
 
-        ax[i, 0].set_ylabel(metric.upper())
+        ax[i, 0].set_ylabel(
+            f'{metric.upper()} {("$\\uparrow$", "$\\downarrow$")[metric == "lpips"]}'
+        )
         ax[i, 0].set_xlim(angles[0], angles[-1])
         ax[i, 1].set_xlim(angles[0], angles[-1])
 
