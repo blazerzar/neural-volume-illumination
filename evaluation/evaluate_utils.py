@@ -497,10 +497,11 @@ def plot_quality_metrics(ax, results, volume, extinction, transfer_function, met
     se_pt = stats_pt.std(axis=0) / np.sqrt(runs)
     se_nr = stats_nr.std(axis=0) / np.sqrt(runs)
 
-    ax.plot(times, mu_pt, label='Path Tracing', c=colors[2])
-    ax.fill_between(times, mu_pt - se_pt, mu_pt + se_pt, color=colors[2], alpha=0.2)
-    ax.plot(times, mu_nr, label='Neural Render', c=colors[6])
-    ax.fill_between(times, mu_nr - se_nr, mu_nr + se_nr, color=colors[2], alpha=0.2)
+    c1, c2 = colors[3], colors[7]
+    ax.plot(times, mu_pt, label='Path tracing', c=c1)
+    ax.fill_between(times, mu_pt - se_pt, mu_pt + se_pt, color=c1, alpha=0.2)
+    ax.plot(times, mu_nr, label='Ours', c=c2)
+    ax.fill_between(times, mu_nr - se_nr, mu_nr + se_nr, color=c2, alpha=0.2)
 
 
 def plot_quality_metrics_full(results, volume, extinction, transfer_function, metric):
@@ -555,14 +556,15 @@ def plot_quality_metrics_turntable(ax, results, metric):
             se_pt[i, j] = stats_pt.std() / np.sqrt(runs)
             se_nr[i, j] = stats_nr.std() / np.sqrt(runs)
 
+    c1, c2 = colors[3], colors[7]
     for j, time in enumerate(times):
         ls = '--' if j == 0 else '-'
         ax.plot(
             angles,
             mu_pt[:, j],
-            label=f'Path Tracing {time}s',
+            label=f'Path tracing {time} s',
             ls=ls,
-            c=colors[2],
+            c=c1,
             marker='o',
             markerfacecolor='white',
         )
@@ -571,15 +573,15 @@ def plot_quality_metrics_turntable(ax, results, metric):
             mu_pt[:, j] - se_pt[:, j],
             mu_pt[:, j] + se_pt[:, j],
             alpha=0.2,
-            color=colors[2],
+            color=c1,
             edgecolor=None,
         )
         ax.plot(
             angles,
             mu_nr[:, j],
-            label=f'Neural Render {time}s',
+            label=f'Ours {time} s',
             ls=ls,
-            c=colors[6],
+            c=c2,
             marker='o',
             markerfacecolor='white',
         )
@@ -588,7 +590,7 @@ def plot_quality_metrics_turntable(ax, results, metric):
             mu_nr[:, j] - se_nr[:, j],
             mu_nr[:, j] + se_nr[:, j],
             alpha=0.2,
-            color=colors[6],
+            color=c2,
             edgecolor=None,
         )
 

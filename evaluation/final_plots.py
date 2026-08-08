@@ -6,9 +6,12 @@ from evaluate_utils import (
     plot_model_loss_all,
     plot_online_loss_tf,
     plot_performance_stages,
+    plot_quality_metrics,
+    plot_quality_metrics_turntable,
     plot_speedups,
     read_model_results,
     read_performance_results,
+    read_quality_results,
 )
 from plot_utils import colors, set_legend_style, set_thesis_plot_style
 
@@ -22,6 +25,7 @@ def main():
     model_plots()
     online_plots()
     performance_plots()
+    quality_plots()
 
 
 def model_plots():
@@ -80,6 +84,7 @@ def model_plots():
                 )
 
         fig.savefig(os.path.join(PLOTS_DIR, f'model_{volume}.pdf'))
+        plt.close()
 
 
 def online_plots():
@@ -101,6 +106,7 @@ def online_plots():
     )
     fig.subplots_adjust(wspace=0, bottom=0.36, right=0.93)
     fig.savefig(os.path.join(PLOTS_DIR, 'online_chameleon.pdf'))
+    plt.close()
 
 
 def performance_plots():
@@ -112,17 +118,17 @@ def performance_plots():
             continue
         results[subdir] = read_performance_results(subdir_path)
 
-    plot_stages_plot(results)
+    plot_stages(results)
 
     timings = compute_performance_speedup(results)
     speedup_colors = {80: colors[0], 200: colors[2], 1000: colors[5]}
     volumes = sorted({v for r in results.values() for v, _ in r})
 
-    plot_stage_speedup_plot(results, speedup_colors, timings, volumes)
-    plot_frame_speedup_plot(results, speedup_colors, timings, volumes)
+    plot_stage_speedup(results, speedup_colors, timings, volumes)
+    plot_frame_speedup(results, speedup_colors, timings, volumes)
 
 
-def plot_stages_plot(results):
+def plot_stages(results):
     example = 'chameleon', 1000
     stage_cols = ['stage_sample_gen', 'stage_direct', 'stage_indirect']
     stage_colors = [colors[5], colors[0], colors[2]]
@@ -154,9 +160,10 @@ def plot_stages_plot(results):
 
     fig.subplots_adjust(wspace=0.15, bottom=0.36, top=0.89)
     fig.savefig(os.path.join(PLOTS_DIR, 'stage_times.pdf'))
+    plt.close()
 
 
-def plot_stage_speedup_plot(results, speedup_colors, timings, volumes):
+def plot_stage_speedup(results, speedup_colors, timings, volumes):
     fig, ax = plt.subplots(1, 2, figsize=(TEXT_WIDTH, TEXT_WIDTH * 0.55), sharey=True)
 
     plot_speedups(ax[0], timings, 'speedup_Li', speedup_colors, add_labels=True)
@@ -182,9 +189,10 @@ def plot_stage_speedup_plot(results, speedup_colors, timings, volumes):
 
     fig.subplots_adjust(wspace=0.1, bottom=0.26, top=0.91, left=0.12, right=0.99)
     fig.savefig(os.path.join(PLOTS_DIR, 'speedups_L.pdf'))
+    plt.close()
 
 
-def plot_frame_speedup_plot(results, speedup_colors, timings, volumes):
+def plot_frame_speedup(results, speedup_colors, timings, volumes):
     fig, ax = plt.subplots(figsize=(TEXT_WIDTH * 0.85, TEXT_WIDTH * 0.42))
 
     plot_speedups(ax, timings, 'speedup_ft', speedup_colors, add_labels=True)
@@ -206,6 +214,117 @@ def plot_frame_speedup_plot(results, speedup_colors, timings, volumes):
 
     fig.subplots_adjust(wspace=0.1, bottom=0.18, top=0.97, left=0.14, right=0.98)
     fig.savefig(os.path.join(PLOTS_DIR, 'speedups_ft.pdf'))
+    plt.close()
+
+
+def quality_plots():
+    plot_quality_front('bonsai', 200, 3)
+    plot_quality_front('silicium', 1000, 2)
+    plot_quality_front('chameleon', 200, 2)
+    plot_quality_turntable()
+
+
+def plot_quality_front(*experiment, nest=False):
+    dir = os.path.join('evaluation', 'results', 'quality', 'front')
+    results = read_quality_results(dir)
+
+    fig, ax = plt.subplots(
+        3, 2, figsize=(TEXT_WIDTH * 0.8, TEXT_WIDTH * 0.6), sharey='row', sharex=True
+    )
+
+    for i, metric in enumerate(['ssim', 'lpips', 'psnr']):
+        plot_quality_metrics(ax[i, 0], results, *experiment, f'{metric}_global')
+        plot_quality_metrics(ax[i, 1], results, *experiment, f'{metric}_indirect')
+        ax[i, 0].set_xlim(0.250, 10)
+        ax[i, 1].set_xlim(0.250, 10)
+        if i == 2:
+            ax[i, 0].set_xlabel('Time [s]')
+            ax[i, 1].set_xlabel('Time [s]')
+            ax[i, 0].set_xticks([2, 4, 6, 8])
+            ax[i, 1].set_xticks([2, 4, 6, 8])
+        else:
+            ax[i, 0].set_xticks([])
+            ax[i, 1].set_xticks([])
+        if i == 0:
+            ax[i, 0].set_title('Global illumination', fontsize=12)
+            ax[i, 1].set_title('Indirect illumination', fontsize=12)
+
+        if metric == 'ssim':
+            ax[i, 0].set_ylim(top=1.01)
+            ax[i, 1].set_ylim(top=1.01)
+        elif metric == 'lpips':
+            ax[i, 0].set_ylim(bottom=-0.01)
+            ax[i, 1].set_ylim(bottom=-0.01)
+
+        ax[i, 0].set_ylabel(metric.upper())
+
+    fig.align_ylabels()
+
+    legend = ax[2, 0].legend(
+        loc='lower center',
+        bbox_to_anchor=(1, -1.06),
+        ncol=2,
+        borderaxespad=0,
+    )
+    set_legend_style(legend)
+
+    fig.subplots_adjust(
+        wspace=0, hspace=0, bottom=0.25, top=0.92, left=0.11, right=0.99
+    )
+    volume, ext, tf = experiment
+    if nest:
+        file_path = os.path.join(PLOTS_DIR, 'quality_front', f'{volume}_{ext}_{tf}.pdf')
+    else:
+        file_path = os.path.join(PLOTS_DIR, f'quality_front_{volume}_{ext}_{tf}.pdf')
+    fig.savefig(file_path)
+    plt.close()
+
+
+def plot_quality_turntable():
+    dir = os.path.join('evaluation', 'results', 'quality', 'turntable')
+    results = read_quality_results(dir)
+    angles = sorted({angle for _, angle, _, _ in results})
+
+    fig, ax = plt.subplots(
+        3, 2, figsize=(TEXT_WIDTH * 0.9, TEXT_WIDTH * 0.8), sharex=True, sharey='row'
+    )
+    for i, metric in enumerate(['ssim', 'lpips', 'psnr']):
+        plot_quality_metrics_turntable(ax[i, 0], results, f'{metric}_global')
+        plot_quality_metrics_turntable(ax[i, 1], results, f'{metric}_indirect')
+
+        if i == 0:
+            ax[i, 0].set_title('Global illumination', fontsize=12)
+            ax[i, 1].set_title('Indirect illumination', fontsize=12)
+        if i == 2:
+            ax[i, 0].set_xlabel('Angle [°]')
+            ax[i, 1].set_xlabel('Angle [°]')
+            ax[i, 0].set_xticks(angles[::2][1:])
+            ax[i, 1].set_xticks(angles[::2][1:])
+        else:
+            ax[i, 0].set_xticks([])
+            ax[i, 1].set_xticks([])
+
+        ax[i, 0].set_ylabel(metric.upper())
+        ax[i, 0].set_xlim(angles[0], angles[-1])
+        ax[i, 1].set_xlim(angles[0], angles[-1])
+
+    fig.align_ylabels()
+
+    handles, labels = ax[2, 0].get_legend_handles_labels()
+    handles = [handles[1], handles[3], handles[0], handles[2]]
+    labels = [labels[1], labels[3], labels[0], labels[2]]
+    legend = ax[2, 0].legend(
+        handles,
+        labels,
+        ncol=2,
+        loc='upper center',
+        bbox_to_anchor=(1, -0.44),
+    )
+    set_legend_style(legend)
+
+    fig.subplots_adjust(wspace=0, hspace=0, bottom=0.23, top=0.94, left=0.1, right=0.99)
+    fig.savefig(os.path.join(PLOTS_DIR, 'quality_turntable.pdf'))
+    plt.close()
 
 
 def shorten_volume_name(name):
