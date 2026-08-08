@@ -12,6 +12,7 @@ from evaluate_utils import (
 def main():
     training_tables()
     speedup_tables()
+    high_samples_table()
 
 
 def training_tables():
@@ -91,8 +92,8 @@ def speedup_tables():
         results[subdir] = read_performance_results(subdir_path)
 
     timings = compute_performance_speedup(results)
-    stage_speedup_table(timings)
-    frame_speedup_table(timings)
+    print(stage_speedup_table(timings), '\n')
+    print(frame_speedup_table(timings), '\n')
 
 
 def stage_speedup_table(timings):
@@ -151,10 +152,12 @@ def stage_speedup_table(timings):
         label='tab:speedups-L',
     )
     latex = postprocess_latex_table(latex, ['Dataset', 'Ext.', 'Ours', 'PT'])
-    print(latex, '\n')
+    return latex
 
 
-def frame_speedup_table(timings):
+def frame_speedup_table(
+    timings, caption=r'\captionspeedupsFT{}', label='tab:speedups-ft'
+):
     cols = pd.MultiIndex.from_tuples(
         [
             ('', 'Dataset'),
@@ -206,11 +209,31 @@ def frame_speedup_table(timings):
         column_format=r'lr|r@{\hspace{5pt}}lc|r@{\hspace{5pt}}lc|c',
         multicolumn=True,
         multicolumn_format='c',
-        caption=r'\captionspeedupsFT{}',
-        label='tab:speedups-ft',
+        caption=caption,
+        label=label,
     )
     latex = latex.replace(' & SE1', '').replace(' & SE2', '')
     latex = postprocess_latex_table(latex, ['Dataset', 'Ext.', 'Ours', 'PT', 'Speedup'])
+    return latex
+
+
+def high_samples_table():
+    dir = os.path.join('evaluation', 'results', 'high_samples')
+    results = {
+        'path_tracing': read_performance_results(os.path.join(dir, 'path_tracing')),
+        'neural_render': read_performance_results(os.path.join(dir, 'neural_render')),
+    }
+    timings = compute_performance_speedup(results)
+    latex = frame_speedup_table(timings, r'\captionhighsamples{}', 'tab:high-samples')
+
+    # Remove \cline{1-9} except on row with Overall
+    lines = latex.splitlines()
+    overall_i = lines.index(next(l for l in lines if r'\textbf{Overall}' in l))
+    lines = [
+        l if i == overall_i else l.replace(r'\cline{1-9} ', '')
+        for i, l in enumerate(lines)
+    ]
+    latex = '\n'.join(lines)
     print(latex, '\n')
 
 
