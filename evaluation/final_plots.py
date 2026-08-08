@@ -127,12 +127,13 @@ def plot_stages_plot(results):
     stage_cols = ['stage_sample_gen', 'stage_direct', 'stage_indirect']
     stage_colors = [colors[5], colors[0], colors[2]]
 
-    fig, ax = plt.subplots(1, 2, figsize=(TEXT_WIDTH, TEXT_WIDTH * 0.5), sharey=True)
+    fig, ax = plt.subplots(1, 2, figsize=(TEXT_WIDTH, TEXT_WIDTH * 0.45), sharey=True)
 
     for i, subdir in enumerate(['path_tracing', 'neural_render']):
         plot_performance_stages(
             ax[i], results[subdir], example, stage_cols, stage_colors
         )
+        subdir = subdir if subdir != 'neural_render' else 'ours'
         ax[i].set_title(subdir.replace('_', ' ').capitalize(), fontsize=12)
         ax[i].set_xlim(1, 59)
         ax[i].set_xlabel('Time [s]', labelpad=10)
@@ -151,12 +152,12 @@ def plot_stages_plot(results):
     )
     set_legend_style(legend)
 
-    fig.subplots_adjust(wspace=0.15, bottom=0.38)
+    fig.subplots_adjust(wspace=0.15, bottom=0.36, top=0.89)
     fig.savefig(os.path.join(PLOTS_DIR, 'stage_times.pdf'))
 
 
 def plot_stage_speedup_plot(results, speedup_colors, timings, volumes):
-    fig, ax = plt.subplots(1, 2, figsize=(TEXT_WIDTH, TEXT_WIDTH * 0.6), sharey=True)
+    fig, ax = plt.subplots(1, 2, figsize=(TEXT_WIDTH, TEXT_WIDTH * 0.55), sharey=True)
 
     plot_speedups(ax[0], timings, 'speedup_Li', speedup_colors, add_labels=True)
     plot_speedups(ax[1], timings, 'speedup_L', speedup_colors)
@@ -165,7 +166,7 @@ def plot_stage_speedup_plot(results, speedup_colors, timings, volumes):
     ax[1].set_title('Global illumination', fontsize=12)
 
     volumes = sorted(timings.loc[timings['extinction'].notna(), 'volume'].unique())
-    volumes = [v.replace('_', ' ') for v in volumes]
+    volumes = [shorten_volume_name(v) for v in volumes]
     labels = [rf'\textsf{{{v}}}' for v in reversed(volumes)]
     ax[0].set_yticks(range(len(volumes)))
     ax[0].set_yticklabels(labels, fontsize=8)
@@ -175,21 +176,21 @@ def plot_stage_speedup_plot(results, speedup_colors, timings, volumes):
     legend = fig.legend(
         loc='upper center',
         ncol=len(speedup_colors),
-        bbox_to_anchor=(0.5, 0.15),
+        bbox_to_anchor=(0.5, 0.12),
     )
     set_legend_style(legend)
 
-    fig.subplots_adjust(wspace=0.1, bottom=0.3, left=0.18, right=0.99)
+    fig.subplots_adjust(wspace=0.1, bottom=0.26, top=0.91, left=0.12, right=0.99)
     fig.savefig(os.path.join(PLOTS_DIR, 'speedups_L.pdf'))
 
 
 def plot_frame_speedup_plot(results, speedup_colors, timings, volumes):
-    fig, ax = plt.subplots(figsize=(TEXT_WIDTH * 0.85, TEXT_WIDTH * 0.45))
+    fig, ax = plt.subplots(figsize=(TEXT_WIDTH * 0.85, TEXT_WIDTH * 0.42))
 
     plot_speedups(ax, timings, 'speedup_ft', speedup_colors, add_labels=True)
 
     volumes = sorted(timings.loc[timings['extinction'].notna(), 'volume'].unique())
-    volumes = [v.replace('_', ' ') for v in volumes]
+    volumes = [shorten_volume_name(v) for v in volumes]
     labels = [rf'\textsf{{{v}}}' for v in reversed(volumes)]
     ax.set_yticks(range(len(volumes)))
     ax.set_yticklabels(labels, fontsize=8)
@@ -203,8 +204,16 @@ def plot_frame_speedup_plot(results, speedup_colors, timings, volumes):
     )
     set_legend_style(legend)
 
-    fig.subplots_adjust(wspace=0.1, bottom=0.18, top=0.97, left=0.21, right=0.98)
+    fig.subplots_adjust(wspace=0.1, bottom=0.18, top=0.97, left=0.14, right=0.98)
     fig.savefig(os.path.join(PLOTS_DIR, 'speedups_ft.pdf'))
+
+
+def shorten_volume_name(name):
+    return (
+        name.replace('csafe_heptane', 'heptane')
+        .replace('mri_ventricles', 'ventricles')
+        .replace('marmoset_neurons', 'neurons')
+    )
 
 
 if __name__ == '__main__':

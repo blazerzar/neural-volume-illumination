@@ -62,8 +62,8 @@ def training_tables():
     table['Extinction'] = table['Extinction'].map('${:d}$'.format)
 
     # Only show dataset once, split by \cline
-    vol = table['Dataset']
-    label = r'\textsf{' + vol.str.replace('_', ' ') + '}'
+    vol = shorten_volume_name(table['Dataset'].astype(str))
+    label = r'\textsf{' + vol + '}'
     rule = pd.Series(
         np.where(np.arange(len(vol)), r'\cline{1-4}' + '\n', ''), index=vol.index
     )
@@ -120,9 +120,7 @@ def stage_speedup_table(timings):
     sep = first.copy()
     sep.iloc[0] = False
     dataset = (
-        (r'\textsf{' + name.str.replace('_', ' ') + '}')
-        .mask(bold, r'\textbf{Overall}')
-        .where(first, '')
+        (r'\textsf{' + name + '}').mask(bold, r'\textbf{Overall}').where(first, '')
     )
     table[('', 'Dataset')] = (r'\cline{1-10} ' + dataset).where(sep, dataset)
     table[('', 'Ext.')] = num.extinction.map('{:.0f}'.format).where(
@@ -180,9 +178,7 @@ def frame_speedup_table(
     sep = first.copy()
     sep.iloc[0] = False
     dataset = (
-        (r'\textsf{' + name.str.replace('_', ' ') + '}')
-        .mask(bold, r'\textbf{Overall}')
-        .where(first, '')
+        (r'\textsf{' + name + '}').mask(bold, r'\textbf{Overall}').where(first, '')
     )
     table[('', 'Dataset')] = (r'\cline{1-9} ' + dataset).where(sep, dataset)
     table[('', 'Ext.')] = num.extinction.map('{:.0f}'.format).where(
