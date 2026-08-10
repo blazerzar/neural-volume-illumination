@@ -46,9 +46,14 @@ def main():
             for method, m in [('path_tracing', 'pt'), ('neural_render', 'nr')]:
                 for mode in ['global', 'indirect']:
                     zip_path = create_zip_path(method, volume, ext, tf, *angle)
-                    ending = f'{volume}_{ext}_{tf}_{mode}_{m}.png'
-                    out_path = os.path.join(OUT_DIR, experiment, ending)
+                    file_name = create_file_name(volume, ext, tf, mode, m, *angle)
+                    out_path = os.path.join(OUT_DIR, experiment, file_name)
                     extract_file(zip_path, mode, out_path, experiment)
+
+
+def create_file_name(volume, ext, tf, mode, method, *angle):
+    parts = [str(x) for x in (volume, ext, tf, *angle, mode, method)]
+    return '_'.join(parts) + '.png'
 
 
 def create_zip_path(method, volume, ext, tf, angle=None):
