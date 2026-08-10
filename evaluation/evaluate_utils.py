@@ -5,10 +5,34 @@ import zipfile
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import torch
+from matplotlib.offsetbox import AnchoredText
 from matplotlib.ticker import MaxNLocator
 from plot_utils import colors, set_legend_style
+from skimage.metrics import (
+    peak_signal_noise_ratio as psnr,
+)
+from skimage.metrics import (
+    structural_similarity as ssim,
+)
+from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 
 PIXEL_VALUES = 8
+
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+lpips_metric = (
+    LearnedPerceptualImagePatchSimilarity(net_type='vgg', normalize=True)
+    .to(device)
+    .eval()
+)
+
+
+@torch.no_grad()
+def _lpips(img, ref):
+    img = torch.from_numpy(img).permute(2, 0, 1).unsqueeze(0).float().to(device)
+    ref = torch.from_numpy(ref).permute(2, 0, 1).unsqueeze(0).float().to(device)
+    return lpips_metric(img, ref).item()
 
 
 def read_model_results(dir_path):
@@ -703,3 +727,75 @@ def print_quality_metrics(results, volume, time, mode):
                 f'{pt_psnr[0]:.2f} ± {pt_psnr[1]:.2f}    '
                 f'{nr_psnr[0]:.2f} ± {nr_psnr[1]:.2f}'
             )
+
+
+def annotate_quality_metric(ax, reference_img, img):
+    metrics = {
+        'ssim': lambda x, y: ssim(x, y, channel_axis=2, data_range=1.0),
+        'lpips': _lpips,
+        'psnr': psnr,
+    }
+    values = [metrics[m](reference_img, img) for m in metrics]
+    ax.text(
+        0.5,
+        0.1,
+        '/'.join(f'{value:.2f}' for value in values),
+        color='white',
+        fontsize=10,
+        ha='center',
+        va='center',
+        transform=ax.transAxes,
+    )
+
+
+def plot_volume_samples(volume, mode, region, num_samples, results_dir, references_dir):
+    fig, ax = plt.subplots(2, len(num_samples) + 1, figsize=(10, 3.36))
+    ext, tf = 200, 3
+
+    for i, method in enumerate(['path_tracing', 'neural_render']):
+        reference_filename = f'front_{volume}_{ext}_{tf}_{mode}.png'
+        reference_filepath = os.path.join(references_dir, reference_filename)
+        reference_img = plt.imread(reference_filepath)[region]
+        if method == 'path_tracing':
+            ax[i, -1].imshow(reference_img)
+        else:
+            converged_filename = f'{volume}_{ext}_{tf}_{mode}.png'
+            converged_filepath = os.path.join(results_dir, method, converged_filename)
+            converged_img = plt.imread(converged_filepath)[region]
+            ax[i, -1].imshow(converged_img)
+            annotate_quality_metric(ax[i, -1], reference_img, converged_img)
+
+        ax[i, -1].axis('off')
+
+        for j, spp in enumerate(num_samples):
+            filename = f'{volume}_{ext}_{tf}_s{spp}_{mode}.png'
+            filepath = os.path.join(results_dir, method, filename)
+            img = plt.imread(filepath)[region]
+            ax[i, j].imshow(img)
+            ax[i, j].axis('off')
+            annotate_quality_metric(ax[i, j], reference_img, img)
+
+            if i == 0:
+                at = AnchoredText(
+                    f'{spp} SPP',
+                    loc='upper right',
+                    prop={'size': 8},
+                    borderpad=0.07,
+                    pad=0.3,
+                )
+                at.patch.set(facecolor='white', edgecolor='black')
+                ax[i, j].add_artist(at)
+
+        ax[i, 0].text(
+            -0.1,
+            0.5,
+            ('Path tracing', 'Ours')[i],
+            transform=ax[i, 0].transAxes,
+            rotation=90,
+            va='center',
+            ha='center',
+            fontsize=12,
+        )
+
+    plt.subplots_adjust(wspace=0, hspace=0)
+    return fig, ax
