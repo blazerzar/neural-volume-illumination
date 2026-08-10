@@ -1,0 +1,24 @@
+\begin{table}[p]
+    \centering
+    \footnotesize
+    \begin{tabular}{l@{\hspace{6pt}}r|ccc|ccc}
+        \toprule
+        \multicolumn{2}{c|}{} & \multicolumn{3}{c|}{\textbf{Ours}} & \multicolumn{3}{c}{\textbf{Path tracing}} \\
+        \textbf{Ext.} & \textbf{TF} & SSIM $\uparrow$ & LPIPS $\downarrow$ & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ & PSNR $\uparrow$ \\
+        \midrule
+        \multirow[t]{3}{*}{$80$} & $1$ & $0.733 (1)$ & $0.077 (1)$ & $31.9 (1)$ & $0.956 (1)$ & $0.152 (2)$ & $39.8 (1)$ \\
+         & $2$ & $0.840 (1)$ & $0.072 (1)$ & $30.0 (1)$ & $0.955 (1)$ & $0.116 (1)$ & $35.4 (1)$ \\
+         & $3$ & $0.853 (1)$ & $0.092 (1)$ & $27.4 (1)$ & $0.934 (1)$ & $0.125 (1)$ & $35.3 (1)$ \\
+        \cline{1-8}
+        \multirow[t]{3}{*}{$200$} & $1$ & $0.726 (1)$ & $0.077 (1)$ & $30.9 (1)$ & $0.941 (1)$ & $0.158 (1)$ & $38.0 (1)$ \\
+         & $2$ & $0.825 (1)$ & $0.074 (1)$ & $30.0 (1)$ & $0.932 (1)$ & $0.143 (1)$ & $33.9 (1)$ \\
+         & $3$ & $0.824 (1)$ & $0.102 (1)$ & $27.2 (1)$ & $0.902 (1)$ & $0.149 (1)$ & $33.5 (1)$ \\
+        \cline{1-8}
+        \multirow[t]{3}{*}{$1000$} & $1$ & $0.711 (1)$ & $0.102 (1)$ & $28.7 (1)$ & $0.928 (1)$ & $0.164 (2)$ & $36.6 (1)$ \\
+         & $2$ & $0.713 (1)$ & $0.158 (1)$ & $21.5 (1)$ & $0.870 (1)$ & $0.188 (1)$ & $32.4 (1)$ \\
+         & $3$ & $0.706 (1)$ & $0.183 (1)$ & $22.1 (1)$ & $0.839 (1)$ & $0.204 (1)$ & $31.6 (1)$ \\
+        \bottomrule
+    \end{tabular}
+    \caption{Quality metrics for the \textsf{chameleon} dataset with varying extinction coefficients ($80$, $200$, $1000$) and transfer function (TF $1{\text -}3$), evaluated under indirect illumination after $0.5$ seconds. Values are means over $10$ runs, with standard errors in parentheses, rounded to the first significant digit.}
+    \label{tab:chameleon-0_5-indirect}
+\end{table}

@@ -3,16 +3,21 @@ import os
 import numpy as np
 import pandas as pd
 from evaluate_utils import (
+    compute_metric,
     compute_performance_speedup,
     read_model_results,
     read_performance_results,
+    read_quality_results,
 )
+
+TABLES_DIR = os.path.join('evaluation', 'results', 'thesis_tables')
 
 
 def main():
     training_tables()
     speedup_tables()
     high_samples_table()
+    quality_tables()
 
 
 def training_tables():
@@ -79,7 +84,7 @@ def training_tables():
     latex = postprocess_latex_table(
         latex, ['Dataset', 'Extinction', 'Offline', 'Online']
     )
-    print(latex, '\n')
+    save_table(latex, 'training_times.tex')
 
 
 def speedup_tables():
@@ -92,8 +97,8 @@ def speedup_tables():
         results[subdir] = read_performance_results(subdir_path)
 
     timings = compute_performance_speedup(results)
-    print(stage_speedup_table(timings), '\n')
-    print(frame_speedup_table(timings), '\n')
+    save_table(stage_speedup_table(timings), 'stage_speedup.tex')
+    save_table(frame_speedup_table(timings), 'frame_speedup.tex')
 
 
 def stage_speedup_table(timings):
@@ -104,9 +109,9 @@ def stage_speedup_table(timings):
             ('Ours', '$L_d$'),
             ('Ours', '$L_i$'),
             ('Ours', '$L$'),
-            ('PT', '$L_d$'),
-            ('PT', '$L_i$'),
-            ('PT', '$L$'),
+            ('Path tracing', '$L_d$'),
+            ('Path tracing', '$L_i$'),
+            ('Path tracing', '$L$'),
             ('', '$S_{L_i}$'),
             ('', '$S_L$'),
         ]
@@ -128,7 +133,7 @@ def stage_speedup_table(timings):
     )
 
     vals = pd.DataFrame(index=timings.index, columns=cols[2:])
-    for grp, k in [('Ours', 'ours'), ('PT', 'pt')]:
+    for grp, k in [('Ours', 'ours'), ('Path tracing', 'pt')]:
         for st in 'di':
             vals[(grp, f'$L_{st}$')] = num[f'{k}_L{st}'].map('{:.2f}'.format)
         vals[(grp, '$L$')] = (num[f'{k}_Ld'] + num[f'{k}_Li']).map('{:.2f}'.format)
@@ -148,13 +153,14 @@ def stage_speedup_table(timings):
         multicolumn_format='c',
         caption=r'\captionspeedupsL{}',
         label='tab:speedups-L',
+        position='p',
     )
-    latex = postprocess_latex_table(latex, ['Dataset', 'Ext.', 'Ours', 'PT'])
+    latex = postprocess_latex_table(latex, ['Dataset', 'Ext.', 'Ours', 'Path tracing'])
     return latex
 
 
 def frame_speedup_table(
-    timings, caption=r'\captionspeedupsFT{}', label='tab:speedups-ft'
+    timings, caption=r'\captionspeedupsFT{}', label='tab:speedups-ft', position='p'
 ):
     cols = pd.MultiIndex.from_tuples(
         [
@@ -163,9 +169,9 @@ def frame_speedup_table(
             ('Ours', r'\multicolumn{2}{c}{Frame time}'),
             ('Ours', 'SE1'),
             ('Ours', 'FPS'),
-            ('PT', r'\multicolumn{2}{c}{Frame time}'),
-            ('PT', 'SE2'),
-            ('PT', 'FPS'),
+            ('Path tracing', r'\multicolumn{2}{c}{Frame time}'),
+            ('Path tracing', 'SE2'),
+            ('Path tracing', 'FPS'),
             ('', 'Speedup'),
         ]
     )
@@ -189,7 +195,7 @@ def frame_speedup_table(
         s = v.map('{:.2f}'.format)
         return ('$' + s + '$').mask(bold, r'$\mathbf{' + s + '}$').where(v.notna(), '')
 
-    for grp, k, se_col in [('Ours', 'ours', 'SE1'), ('PT', 'pt', 'SE2')]:
+    for grp, k, se_col in [('Ours', 'ours', 'SE1'), ('Path tracing', 'pt', 'SE2')]:
         se = num[f'{k}_ft_se'].mask(bold)
         table[(grp, r'\multicolumn{2}{c}{Frame time}')] = cell(num[f'{k}_ft'])
         table[(grp, se_col)] = (r'$\pm\,' + se.map('{:.2f}'.format) + '$').where(
@@ -207,9 +213,12 @@ def frame_speedup_table(
         multicolumn_format='c',
         caption=caption,
         label=label,
+        position=position,
     )
     latex = latex.replace(' & SE1', '').replace(' & SE2', '')
-    latex = postprocess_latex_table(latex, ['Dataset', 'Ext.', 'Ours', 'PT', 'Speedup'])
+    latex = postprocess_latex_table(
+        latex, ['Dataset', 'Ext.', 'Ours', 'Path tracing', 'Speedup']
+    )
     return latex
 
 
@@ -220,7 +229,9 @@ def high_samples_table():
         'neural_render': read_performance_results(os.path.join(dir, 'neural_render')),
     }
     timings = compute_performance_speedup(results)
-    latex = frame_speedup_table(timings, r'\captionhighsamples{}', 'tab:high-samples')
+    latex = frame_speedup_table(
+        timings, r'\captionhighsamples{}', 'tab:high-samples', position='h!'
+    )
 
     # Remove \cline{1-9} except on row with Overall
     lines = latex.splitlines()
@@ -230,7 +241,96 @@ def high_samples_table():
         for i, l in enumerate(lines)
     ]
     latex = '\n'.join(lines)
-    print(latex, '\n')
+    save_table(latex, 'high_samples.tex')
+
+
+def quality_tables():
+    dir = os.path.join('evaluation', 'results', 'quality', 'front')
+    results = read_quality_results(dir)
+
+    volumes = sorted({volume for volume, _, _ in results})
+    for volume in volumes:
+        quality_metrics_table(results, volume, 0.5, 'global')
+        quality_metrics_table(results, volume, 0.5, 'indirect')
+
+
+def quality_metrics_table(results, volume, time, mode):
+    metrics = (
+        ('ssim', 'SSIM', 3, 'uparrow'),
+        ('lpips', 'LPIPS', 3, 'downarrow'),
+        ('psnr', 'PSNR', 1, 'uparrow'),
+    )
+    extinctions = sorted({extinction for _, extinction, _ in results})
+    transfer_functions = sorted({tf for _, _, tf in results})
+
+    records = {}
+    for extinction in extinctions:
+        for transfer_function in transfer_functions:
+            row = {}
+            for key, label, precision, _ in metrics:
+                pt, ours = compute_metric(
+                    results,
+                    volume,
+                    extinction,
+                    transfer_function,
+                    f'{key}_{mode}',
+                    time,
+                )
+                for group, (mean, std) in (('Path tracing', pt), ('Ours', ours)):
+                    digits = max(round(std * 10**precision), 1)
+                    row[(group, label)] = f'${mean:.{precision}f} ({digits})$'
+            records[(f'${extinction}$', f'${transfer_function}$')] = row
+
+    frame = pd.DataFrame.from_dict(records, orient='index')
+    frame.index = pd.MultiIndex.from_tuples(frame.index, names=['Ext.', 'TF'])
+    frame.columns = pd.MultiIndex.from_tuples(frame.columns)
+    frame = frame[
+        [
+            (group, label)
+            for group in ('Ours', 'Path tracing')
+            for _, label, _, _ in metrics
+        ]
+    ]
+
+    labels = ' & '.join(f'{label} $\\{arrow}$' for _, label, _, arrow in metrics)
+    header = (
+        '\\multicolumn{2}{c|}{} & '
+        '\\multicolumn{3}{c|}{Ours} & '
+        '\\multicolumn{3}{c}{Path tracing} \\\\\n'
+        f'Ext. & TF & {labels} & {labels} \\\\'
+    )
+
+    latex = (
+        frame.style.hide(axis='columns')
+        .hide(names=True)
+        .to_latex(
+            column_format='l@{\\hspace{6pt}}r|ccc|ccc',
+            hrules=True,
+            sparse_index=True,
+            multirow_align='t',
+            position='p',
+            caption=(
+                f'Quality metrics for the \\textsf{{{escape_volume_name(volume)}}} '
+                'dataset with varying extinction coefficients ($80$, $200$, $1000$) '
+                f'and transfer function (TF $1{{\\text -}}3$), evaluated under '
+                f'{mode} illumination after ${time}$ seconds. Values are means '
+                'over $10$ runs, with standard errors in parentheses, rounded '
+                'to the first significant digit.'
+            ),
+            label=f'tab:{volume}-{str(time).replace(".", "_")}-{mode}',
+        )
+    )
+    latex = latex.replace('\\toprule\n', f'\\toprule\n{header}\n', 1)
+
+    lines = []
+    for line in latex.split('\n'):
+        if line.startswith('\\multirow') and lines and '\\midrule' not in lines[-1]:
+            lines.append('\\cline{1-8}')
+        lines.append(line)
+    latex = '\n'.join(lines)
+
+    latex = postprocess_latex_table(latex, ['Ext.', 'TF', 'Ours', 'Path tracing'])
+    save_table(latex, f'quality/{volume}_{str(time).replace(".", "-")}_{mode}.tex')
 
 
 def postprocess_latex_table(latex, bold_columns):
@@ -238,8 +338,6 @@ def postprocess_latex_table(latex, bold_columns):
     Move caption and label to the bottom of the table, add centering and
     footnotesize, bold column names, and indent lines.
     """
-    for col in bold_columns:
-        latex = latex.replace(col, r'\textbf{' + col + '}')
     lines = latex.splitlines()
 
     caption_i = lines.index(next(l for l in lines if l.startswith(r'\caption')))
@@ -260,7 +358,11 @@ def postprocess_latex_table(latex, bold_columns):
         indent = 8 if 3 < i < len(lines) - 4 else 4
         lines[i] = indent * ' ' + lines[i]
 
-    return '\n'.join(lines)
+    latex = '\n'.join(lines)
+    for col in bold_columns:
+        latex = latex.replace(col, r'\textbf{' + col + '}', 1)
+
+    return latex
 
 
 def shorten_volume_name(name):
@@ -269,6 +371,16 @@ def shorten_volume_name(name):
         .replace('mri_ventricles', 'ventricles')
         .replace('marmoset_neurons', 'neurons')
     )
+
+
+def escape_volume_name(name):
+    return name.replace('_', r'\_')
+
+
+def save_table(latex, filename):
+    file_path = os.path.join(TABLES_DIR, filename)
+    with open(file_path, 'wt', encoding='utf-8') as f:
+        f.write(latex)
 
 
 if __name__ == '__main__':
