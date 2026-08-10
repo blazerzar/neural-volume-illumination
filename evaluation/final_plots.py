@@ -315,8 +315,8 @@ def plot_quality_turntable():
     fig.align_ylabels()
 
     handles, labels = ax[2, 0].get_legend_handles_labels()
-    handles = [handles[1], handles[3], handles[0], handles[2]]
-    labels = [labels[1], labels[3], labels[0], labels[2]]
+    handles = [handles[0], handles[2], handles[1], handles[3]]
+    labels = [labels[0], labels[2], labels[1], labels[3]]
     legend = ax[2, 0].legend(
         handles,
         labels,
