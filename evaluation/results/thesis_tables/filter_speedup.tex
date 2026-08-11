@@ -1,0 +1,23 @@
+\begin{table}[t]
+    \centering
+    \footnotesize
+    \begin{tabular}{lr|r@{\hspace{5pt}}lc|r@{\hspace{5pt}}lc|c}
+        \toprule
+        \multicolumn{2}{c}{} & \multicolumn{3}{c}{\textbf{Ours}} & \multicolumn{3}{c}{\textbf{Path tracing}} &  \\
+        \textbf{Dataset} & \textbf{Ext.} & \multicolumn{2}{c}{Frame time} & FPS & \multicolumn{2}{c}{Frame time} & FPS & \textbf{Speedup} \\
+        \midrule
+        \textsf{chameleon} & 80 & $51.77$ & $\pm\,0.26$ & $19.37$ & $50.47$ & $\pm\,0.39$ & $19.96$ & $0.97$ \\
+         & 200 & $69.39$ & $\pm\,0.39$ & $14.46$ & $82.33$ & $\pm\,0.71$ & $12.27$ & $1.19$ \\
+         & 1000 & $94.71$ & $\pm\,0.94$ & $10.68$ & $113.89$ & $\pm\,0.90$ & $8.84$ & $1.20$ \\
+        \cline{1-9} \textsf{heptane} & 80 & $17.14$ & $\pm\,0.74$ & $74.34$ & $6.85$ & $\pm\,0.05$ & $146.62$ & $0.40$ \\
+         & 200 & $30.41$ & $\pm\,0.09$ & $32.92$ & $28.32$ & $\pm\,0.46$ & $37.63$ & $0.93$ \\
+         & 1000 & $57.04$ & $\pm\,0.31$ & $17.59$ & $65.55$ & $\pm\,0.51$ & $15.36$ & $1.15$ \\
+        \cline{1-9} \textsf{neurons} & 80 & $63.94$ & $\pm\,0.65$ & $15.83$ & $63.16$ & $\pm\,0.78$ & $16.13$ & $0.99$ \\
+         & 200 & $80.58$ & $\pm\,1.10$ & $12.70$ & $98.57$ & $\pm\,1.56$ & $10.47$ & $1.22$ \\
+         & 1000 & $95.41$ & $\pm\,0.88$ & $10.59$ & $136.76$ & $\pm\,2.03$ & $7.52$ & $1.43$ \\
+        \cline{1-9} \textbf{Overall} &  & $\mathbf{560.38}$ &  &  & $\mathbf{645.90}$ &  &  & $\mathbf{1.15}$ \\
+        \bottomrule
+    \end{tabular}
+    \caption{\captionfilterspeedup{}}
+    \label{tab:filter-speedup}
+\end{table}

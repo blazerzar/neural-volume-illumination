@@ -18,6 +18,7 @@ def main():
     speedup_tables()
     high_samples_table()
     quality_tables()
+    filter_tables()
 
 
 def training_tables():
@@ -310,7 +311,7 @@ def quality_metrics_table(results, volume, time, mode):
             multirow_align='t',
             position='p',
             caption=(
-                f'Quality metrics for the \\textsf{{{escape_volume_name(volume)}}} '
+                f'Quality metrics for the \\textsf{{{shorten_volume_name(volume)}}} '
                 'dataset with varying extinction coefficients ($80$, $200$, $1000$) '
                 f'and transfer function (TF $1{{\\text -}}3$), evaluated under '
                 f'{mode} illumination after ${time}$ seconds. Values are means '
@@ -331,6 +332,107 @@ def quality_metrics_table(results, volume, time, mode):
 
     latex = postprocess_latex_table(latex, ['Ext.', 'TF', 'Ours', 'Path tracing'])
     save_table(latex, f'quality/{volume}_{str(time).replace(".", "-")}_{mode}.tex')
+
+
+def filter_tables():
+    dir = os.path.join('evaluation', 'results', 'filter')
+    filter_performance_table(dir)
+    filter_quality_table(dir)
+
+
+def filter_performance_table(dir):
+    results = {
+        'path_tracing': read_performance_results(
+            os.path.join(dir, 'performance', 'path_tracing')
+        ),
+        'neural_render': read_performance_results(
+            os.path.join(dir, 'performance', 'neural_render')
+        ),
+    }
+    timings = compute_performance_speedup(results)
+    latex = frame_speedup_table(
+        timings, r'\captionfilterspeedup{}', 'tab:filter-speedup', position='t'
+    )
+    save_table(latex, 'filter_speedup.tex')
+
+
+def filter_quality_table(dir):
+    results = read_quality_results(os.path.join(dir, 'quality'))
+    metrics = (
+        ('ssim', 'SSIM', 3, 'uparrow'),
+        ('lpips', 'LPIPS', 3, 'downarrow'),
+        ('psnr', 'PSNR', 1, 'uparrow'),
+    )
+    modes = (('global', 'Global'), ('indirect', 'Indirect'))
+    volumes = sorted({volume for volume, _, _ in results})
+    records = {}
+    for volume in volumes:
+        extinction, transfer_function = min(
+            (extinction, transfer_function)
+            for key_volume, extinction, transfer_function in results
+            if key_volume == volume
+        )
+        for mode, mode_label in modes:
+            row = {}
+            for key, label, precision, _ in metrics:
+                pt, ours = compute_metric(
+                    results,
+                    volume,
+                    extinction,
+                    transfer_function,
+                    f'{key}_{mode}',
+                    0.5,
+                )
+                for group, (mean, std) in (('Path tracing', pt), ('Ours', ours)):
+                    digits = max(round(std * 10**precision), 1)
+                    row[(group, label)] = f'${mean:.{precision}f} ({digits})$'
+            records[(f'\\textsf{{{shorten_volume_name(volume)}}}', mode_label)] = row
+    frame = pd.DataFrame.from_dict(records, orient='index')
+    frame.index = pd.MultiIndex.from_tuples(frame.index, names=['Volume', 'Illum.'])
+    frame.columns = pd.MultiIndex.from_tuples(frame.columns)
+    frame = frame[
+        [
+            (group, label)
+            for group in ('Ours', 'Path tracing')
+            for _, label, _, _ in metrics
+        ]
+    ]
+    labels = ' & '.join(f'{label} $\\{arrow}$' for _, label, _, arrow in metrics)
+    header = (
+        '\\multicolumn{2}{c|}{} & '
+        '\\multicolumn{3}{c|}{Ours} & '
+        '\\multicolumn{3}{c}{Path tracing} \\\\\n'
+        f'Volume & Illum. & {labels} & {labels} \\\\'
+    )
+    latex = (
+        frame.style.hide(axis='columns')
+        .hide(names=True)
+        .to_latex(
+            column_format='l@{\\hspace{6pt}}l|ccc|ccc',
+            hrules=True,
+            sparse_index=True,
+            multirow_align='t',
+            caption=(
+                r'Quality metrics for the \textsf{chameleon}, \textsf{heptane}, '
+                r'and \textsf{neurons} datasets with filtering enabled, using '
+                f'extinction coefficient ${extinction}$ and transfer function '
+                f'${transfer_function}$, evaluated under global and indirect '
+                f'illumination after $0.5$ seconds. Values are means over '
+                '$10$ runs, with standard errors in parentheses, rounded to the '
+                'first significant digit.'
+            ),
+            label='tab:filter-quality',
+        )
+    )
+    latex = latex.replace('\\toprule\n', f'\\toprule\n{header}\n', 1)
+    lines = []
+    for line in latex.split('\n'):
+        if line.startswith('\\multirow') and lines and '\\midrule' not in lines[-1]:
+            lines.append('\\cline{1-8}')
+        lines.append(line)
+    latex = '\n'.join(lines)
+    latex = postprocess_latex_table(latex, ['Volume', 'Illum.', 'Ours', 'Path tracing'])
+    save_table(latex, 'filter_quality_0-5.tex')
 
 
 def postprocess_latex_table(latex, bold_columns):
@@ -371,10 +473,6 @@ def shorten_volume_name(name):
         .replace('mri_ventricles', 'ventricles')
         .replace('marmoset_neurons', 'neurons')
     )
-
-
-def escape_volume_name(name):
-    return name.replace('_', r'\_')
 
 
 def save_table(latex, filename):
