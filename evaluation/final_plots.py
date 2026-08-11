@@ -9,6 +9,7 @@ from evaluate_utils import (
     plot_quality_metrics,
     plot_quality_metrics_turntable,
     plot_speedups,
+    plot_volume_samples,
     read_model_results,
     read_performance_results,
     read_quality_results,
@@ -16,7 +17,7 @@ from evaluate_utils import (
 from plot_utils import colors, set_legend_style, set_thesis_plot_style
 
 PLOTS_DIR = os.path.join('evaluation', 'results', 'thesis_plots')
-TEXT_WIDTH = 390 / 72
+TEXT_WIDTH = 390 / 72.28
 
 
 def main():
@@ -26,6 +27,7 @@ def main():
     online_plots()
     performance_plots()
     quality_plots()
+    samples_plots()
 
 
 def model_plots():
@@ -329,6 +331,64 @@ def plot_quality_turntable():
     fig.subplots_adjust(wspace=0, hspace=0, bottom=0.23, top=0.94, left=0.1, right=0.99)
     fig.savefig(os.path.join(PLOTS_DIR, 'quality_turntable.pdf'))
     plt.close()
+
+
+def samples_plots():
+    size = 130
+
+    chameleon_tl = (260, 300)
+    chameleon_region = (
+        slice(chameleon_tl[0], chameleon_tl[0] + size),
+        slice(chameleon_tl[1], chameleon_tl[1] + size),
+    )
+
+    heptane_tl = (280, 250)
+    heptane_region = (
+        slice(heptane_tl[0], heptane_tl[0] + size),
+        slice(heptane_tl[1], heptane_tl[1] + size),
+    )
+
+    neurons_tl = (512 - size, 375)
+    neurons_region = (
+        slice(neurons_tl[0], neurons_tl[0] + size),
+        slice(neurons_tl[1], neurons_tl[1] + size),
+    )
+
+    l, r, b, t = 0.25, 0.05, 0.05, 0.05
+    cell_size = (TEXT_WIDTH - l - r) / 5
+    fig_height = cell_size * 2 + t + b
+
+    for volume, region in [
+        ('chameleon', chameleon_region),
+        ('csafe_heptane', heptane_region),
+        ('marmoset_neurons', neurons_region),
+    ]:
+        for mode in ['global', 'indirect']:
+            fig, ax = plot_volume_samples(
+                volume,
+                mode,
+                region,
+                [1, 4, 8, 16],
+                os.path.join('evaluation', 'results', 'samples'),
+                os.path.join('evaluation', 'results', 'quality', 'references'),
+                (TEXT_WIDTH, fig_height),
+            )
+            bleed_axes(ax, TEXT_WIDTH, fig_height, l, b, cell_size, 0.1)
+            for i, a in enumerate(ax.reshape(-1)):
+                a.set_zorder(10 - i)
+            fig.savefig(os.path.join(PLOTS_DIR, f'samples_{volume}_{mode}.pdf'))
+
+
+def bleed_axes(ax, fig_w, fig_h, l, b, cell, bleed_pt):
+    bx, by = bleed_pt / 72.28 / fig_w, bleed_pt / 72.28 / fig_h
+    nrows, ncols = ax.shape
+    w, h = cell / fig_w, cell / fig_h
+    for i in range(nrows):
+        for j in range(ncols):
+            x0 = (l + j * cell) / fig_w
+            y0 = (b + (nrows - 1 - i) * cell) / fig_h
+            ax[i, j].set_position([x0 - bx, y0 - by, w + 2 * bx, h + 2 * by])
+            ax[i, j].set_aspect('auto')
 
 
 def shorten_volume_name(name):

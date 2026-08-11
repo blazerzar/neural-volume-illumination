@@ -741,15 +741,17 @@ def annotate_quality_metric(ax, reference_img, img):
         0.1,
         '/'.join(f'{value:.2f}' for value in values),
         color='white',
-        fontsize=10,
+        fontsize=8,
         ha='center',
         va='center',
         transform=ax.transAxes,
     )
 
 
-def plot_volume_samples(volume, mode, region, num_samples, results_dir, references_dir):
-    fig, ax = plt.subplots(2, len(num_samples) + 1, figsize=(10, 3.36))
+def plot_volume_samples(
+    volume, mode, region, num_samples, results_dir, references_dir, figsize=(10, 3.36)
+):
+    fig, ax = plt.subplots(2, len(num_samples) + 1, figsize=figsize)
     ext, tf = 200, 3
 
     for i, method in enumerate(['path_tracing', 'neural_render']):
@@ -781,7 +783,7 @@ def plot_volume_samples(volume, mode, region, num_samples, results_dir, referenc
                     loc='upper right',
                     prop={'size': 8},
                     borderpad=0.07,
-                    pad=0.3,
+                    pad=0.25,
                 )
                 at.patch.set(facecolor='white', edgecolor='black')
                 ax[i, j].add_artist(at)
