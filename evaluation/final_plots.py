@@ -28,6 +28,7 @@ def main():
     performance_plots()
     quality_plots()
     samples_plots()
+    filter_plots()
 
 
 def model_plots():
@@ -229,7 +230,18 @@ def quality_plots():
 def plot_quality_front(*experiment, nest=False):
     dir = os.path.join('evaluation', 'results', 'quality', 'front')
     results = read_quality_results(dir)
+    fig, _ = plot_quality_helper(results, *experiment)
 
+    volume, ext, tf = experiment
+    if nest:
+        file_path = os.path.join(PLOTS_DIR, 'quality_front', f'{volume}_{ext}_{tf}.pdf')
+    else:
+        file_path = os.path.join(PLOTS_DIR, f'quality_front_{volume}_{ext}_{tf}.pdf')
+    fig.savefig(file_path)
+    plt.close()
+
+
+def plot_quality_helper(results, *experiment):
     fig, ax = plt.subplots(
         3, 2, figsize=(TEXT_WIDTH * 0.8, TEXT_WIDTH * 0.6), sharey='row', sharex=True
     )
@@ -275,13 +287,7 @@ def plot_quality_front(*experiment, nest=False):
     fig.subplots_adjust(
         wspace=0, hspace=0, bottom=0.25, top=0.92, left=0.11, right=0.99
     )
-    volume, ext, tf = experiment
-    if nest:
-        file_path = os.path.join(PLOTS_DIR, 'quality_front', f'{volume}_{ext}_{tf}.pdf')
-    else:
-        file_path = os.path.join(PLOTS_DIR, f'quality_front_{volume}_{ext}_{tf}.pdf')
-    fig.savefig(file_path)
-    plt.close()
+    return fig, ax
 
 
 def plot_quality_turntable():
@@ -377,6 +383,7 @@ def samples_plots():
             for i, a in enumerate(ax.reshape(-1)):
                 a.set_zorder(10 - i)
             fig.savefig(os.path.join(PLOTS_DIR, f'samples_{volume}_{mode}.pdf'))
+            plt.close()
 
 
 def bleed_axes(ax, fig_w, fig_h, l, b, cell, bleed_pt):
@@ -389,6 +396,30 @@ def bleed_axes(ax, fig_w, fig_h, l, b, cell, bleed_pt):
             y0 = (b + (nrows - 1 - i) * cell) / fig_h
             ax[i, j].set_position([x0 - bx, y0 - by, w + 2 * bx, h + 2 * by])
             ax[i, j].set_aspect('auto')
+
+
+def filter_plots():
+    dir = os.path.join('evaluation', 'results', 'filter')
+
+    model_results = read_model_results(os.path.join(dir, 'model'))
+    fig, _ = plot_model_loss_all(
+        model_results,
+        'chameleon',
+        [(0, 0.035)],
+        show_legend=False,
+        figsize=(TEXT_WIDTH, TEXT_WIDTH * 0.4),
+        tfs=[2],
+    )
+    fig.subplots_adjust(wspace=0, hspace=0, bottom=0.25, top=0.85, right=0.93)
+    fig.savefig(os.path.join(PLOTS_DIR, 'filter_model_chameleon.pdf'))
+    plt.close()
+
+    quality_results = read_quality_results(os.path.join(dir, 'quality'))
+    fig, ax = plot_quality_helper(quality_results, 'chameleon', 200, 3)
+    file_path = os.path.join(PLOTS_DIR, 'quality_filter_chameleon_200_3.pdf')
+    ax[-1, 0].set_ylim(top=54)
+    fig.savefig(file_path)
+    plt.close()
 
 
 def shorten_volume_name(name):

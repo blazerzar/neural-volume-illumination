@@ -74,13 +74,16 @@ def plot_model_loss(
 
 
 def plot_model_loss_all(
-    results, volume, ylims, layers=None, show_legend=True, figsize=(10, 10)
+    results, volume, ylims, layers=None, show_legend=True, figsize=(10, 10), tfs=None
 ):
-    fig, ax = plt.subplots(3, 3, figsize=figsize)
-
     results = [results] if layers is None else [results[layer] for layer in layers]
     extinctions = sorted({ext for _, ext, _ in results[0]})
     transfer_functions = sorted({tf for _, _, tf in results[0]})
+    if tfs is not None:
+        transfer_functions = [tf for tf in transfer_functions if tf in tfs]
+
+    fig, ax = plt.subplots(len(transfer_functions), 3, figsize=figsize)
+    ax = ax.reshape(len(transfer_functions), 3)
 
     baseline_styles = [
         {'color': colors[3], 'linestyle': '-', 'linewidth': 0.8, 'zorder': 1},
@@ -103,7 +106,7 @@ def plot_model_loss_all(
 
             ax[i, j].set_xlim(0, 500)
             ax[i, j].set_ylim(ylims[i])
-            if i < 2:
+            if i < len(transfer_functions) - 1:
                 ax[i, j].set_xticks([])
             else:
                 ax[i, j].set_xticks([100, 200, 300, 400])
@@ -129,17 +132,17 @@ def plot_model_loss_all(
                     fontsize=12,
                 )
 
-    ax[2, 1].set_xlabel('Frame', labelpad=10)
-    ax[1, 0].set_ylabel('Loss', labelpad=10)
+    ax[-1, 1].set_xlabel('Frame', labelpad=10)
+    ax[1 if len(transfer_functions) > 1 else 0, 0].set_ylabel('Loss', labelpad=10)
 
     if show_legend:
-        handles, labels = ax[2, 1].get_legend_handles_labels()
+        handles, labels = ax[-1, 1].get_legend_handles_labels()
         order = ['Front', 'Turntable', 'Front baseline', 'Turntable baseline']
         ordered = [
             (h, la) for name in order for h, la in zip(handles, labels) if la == name
         ]
         h_sorted, l_sorted = zip(*ordered)
-        legend = ax[2, 1].legend(
+        legend = ax[-1, 1].legend(
             h_sorted,
             l_sorted,
             ncol=4,
