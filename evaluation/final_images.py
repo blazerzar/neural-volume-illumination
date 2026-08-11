@@ -34,6 +34,11 @@ IMAGES = {
         ('silicium', 1000, 3),
         ('vismale', 1000, 3),
     ],
+    'filter': [
+        ('chameleon', 200, 3),
+        ('csafe_heptane', 200, 3),
+        ('marmoset_neurons', 200, 3),
+    ],
 }
 
 
@@ -45,7 +50,9 @@ def main():
         for volume, ext, tf, *angle in images:
             for method, m in [('path_tracing', 'pt'), ('neural_render', 'nr')]:
                 for mode in ['global', 'indirect']:
-                    zip_path = create_zip_path(method, volume, ext, tf, *angle)
+                    zip_path = create_zip_path(
+                        experiment, method, volume, ext, tf, *angle
+                    )
                     file_name = create_file_name(volume, ext, tf, mode, m, *angle)
                     out_path = os.path.join(OUT_DIR, experiment, file_name)
                     extract_file(zip_path, mode, out_path, experiment)
@@ -56,12 +63,16 @@ def create_file_name(volume, ext, tf, mode, method, *angle):
     return '_'.join(parts) + '.png'
 
 
-def create_zip_path(method, volume, ext, tf, angle=None):
+def create_zip_path(experiment, method, volume, ext, tf, angle=None):
     ending = f'{volume}_{ext}_{tf}.zip'
-    if angle is None:
-        return os.path.join(IMAGES_DIR, f'quality_front_{method}_{ending}')
+    name = 'quality'
+    if angle is not None:
+        name += f'_turntable_{angle}'
+    elif experiment == 'filter':
+        name = 'filter_' + name
     else:
-        return os.path.join(IMAGES_DIR, f'quality_turntable_{angle}_{method}_{ending}')
+        name += '_front'
+    return os.path.join(IMAGES_DIR, f'{name}_{method}_{ending}')
 
 
 def extract_file(zip_path, mode, out_path, experiment):
