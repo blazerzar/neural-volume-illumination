@@ -313,7 +313,7 @@ def quality_metrics_table(results, volume, time, mode):
             caption=(
                 f'Quality metrics for the \\textsf{{{shorten_volume_name(volume)}}} '
                 'dataset with varying extinction coefficients ($80$, $200$, $1000$) '
-                f'and transfer function (TF $1{{\\text -}}3$), evaluated under '
+                f'and transfer functions (TF $1$--$3$), evaluated under '
                 f'{mode} illumination after ${time}$ seconds. Values are means '
                 'over $10$ runs, with standard errors in parentheses, rounded '
                 'to the first significant digit.'
