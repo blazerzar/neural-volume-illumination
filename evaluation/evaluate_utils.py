@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+from matplotlib.colors import to_rgb
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.ticker import MaxNLocator
 from plot_utils import colors, set_legend_style
@@ -26,6 +27,11 @@ lpips_metric = (
     .to(device)
     .eval()
 )
+
+
+def flatten_color(color, alpha, bg='white'):
+    c, b = to_rgb(color), to_rgb(bg)
+    return tuple(a * ci + (1 - a) * bi for ci, bi, a in zip(c, b, [alpha] * 3))
 
 
 @torch.no_grad()
@@ -471,7 +477,9 @@ def plot_speedups(ax, timings, speedup_col, colors, add_labels=False):
                 edgecolor='black',
                 linewidth=0.5,
             )
-    ax.axvspan(0, 1, facecolor='lightgray', alpha=0.4, zorder=0, edgecolor='none')
+    ax.axvspan(
+        0, 1, facecolor=flatten_color('lightgray', 0.4), zorder=0, edgecolor='none'
+    )
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.set_xlabel('Speedup')
 
