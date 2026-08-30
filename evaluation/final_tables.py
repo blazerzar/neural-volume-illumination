@@ -437,32 +437,19 @@ def filter_quality_table(dir):
 
 def postprocess_latex_table(latex, bold_columns):
     """
-    Move caption and label to the bottom of the table, add centering and
-    footnotesize, bold column names, and indent lines.
+    Add centering and footnotesize, bold column names, and indent lines.
     """
     lines = latex.splitlines()
-
-    caption_i = lines.index(next(l for l in lines if l.startswith(r'\caption')))
-    label_i = lines.index(next(l for l in lines if l.startswith(r'\label')))
-    caption_line = lines[caption_i]
-    label_line = lines[label_i]
-    lines = [l for i, l in enumerate(lines) if i not in [caption_i, label_i]]
-
-    lines = (
-        lines[:1]
-        + [r'\centering', r'\footnotesize']
-        + lines[1:-1]
-        + [caption_line, label_line]
-        + lines[-1:]
-    )
+    lines = lines[:1] + [r'\footnotesize', r'\centering'] + lines[1:]
 
     for i in range(1, len(lines) - 1):
-        indent = 8 if 3 < i < len(lines) - 4 else 4
+        indent = 8 if 5 < i < len(lines) - 2 else 4
         lines[i] = indent * ' ' + lines[i]
 
     latex = '\n'.join(lines)
     for col in bold_columns:
-        latex = latex.replace(col, r'\textbf{' + col + '}', 1)
+        split = latex.rsplit(col, 1)
+        latex = (r'\textbf{' + col + '}').join(split)
 
     return latex
 

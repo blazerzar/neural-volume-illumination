@@ -1,6 +1,8 @@
 \begin{table}
-    \centering
     \footnotesize
+    \centering
+    \caption{Quality metrics for the \textsf{chameleon}, \textsf{heptane}, and \textsf{neurons} datasets with filtering enabled, using extinction coefficient $200$ and transfer function $3$, evaluated under global and indirect illumination after $0.5$ seconds. Values are means over $10$ runs, with standard errors in parentheses, rounded to the first significant digit.}
+    \label{tab:filter-quality}
     \begin{tabular}{l@{\hspace{6pt}}l|ccc|ccc}
         \toprule
         \multicolumn{2}{c|}{} & \multicolumn{3}{c|}{\textbf{Ours}} & \multicolumn{3}{c}{\textbf{Path tracing}} \\
@@ -16,6 +18,4 @@
          & Indirect & $0.149 (1)$ & $0.682 (1)$ & $17.1 (1)$ & $0.959 (1)$ & $0.102 (1)$ & $38.5 (1)$ \\
         \bottomrule
     \end{tabular}
-    \caption{Quality metrics for the \textsf{chameleon}, \textsf{heptane}, and \textsf{neurons} datasets with filtering enabled, using extinction coefficient $200$ and transfer function $3$, evaluated under global and indirect illumination after $0.5$ seconds. Values are means over $10$ runs, with standard errors in parentheses, rounded to the first significant digit.}
-    \label{tab:filter-quality}
 \end{table}
