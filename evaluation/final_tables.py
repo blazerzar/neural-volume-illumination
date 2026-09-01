@@ -279,7 +279,17 @@ def quality_metrics_table(results, volume, time, mode):
                 )
                 for group, (mean, std) in (('Path tracing', pt), ('Ours', ours)):
                     digits = max(round(std * 10**precision), 1)
-                    row[(group, label)] = f'${mean:.{precision}f} ({digits})$'
+                    winner = (
+                        group == 'Ours'
+                        and ours[0] < pt[0]
+                        or group == 'Path tracing'
+                        and pt[0] < ours[0]
+                    ) and key == 'lpips'
+                    if winner:
+                        cell = rf'$\mathbf{{{mean:.{precision}f} ({digits})}}$'
+                    else:
+                        cell = f'${mean:.{precision}f} ({digits})$'
+                    row[(group, label)] = cell
             records[(f'${extinction}$', f'${transfer_function}$')] = row
 
     frame = pd.DataFrame.from_dict(records, orient='index')
@@ -316,7 +326,8 @@ def quality_metrics_table(results, volume, time, mode):
                 f'and transfer functions (TF $1$--$3$), evaluated under '
                 f'{mode} illumination after ${time}$ seconds. Values are means '
                 'over $10$ runs, with standard errors in parentheses, rounded '
-                'to the first significant digit.'
+                'to the first significant digit. Boldface indicates the better '
+                'LPIPS value in each row.'
             ),
             label=f'tab:{volume}-{str(time).replace(".", "_")}-{mode}',
         )
@@ -385,7 +396,17 @@ def filter_quality_table(dir):
                 )
                 for group, (mean, std) in (('Path tracing', pt), ('Ours', ours)):
                     digits = max(round(std * 10**precision), 1)
-                    row[(group, label)] = f'${mean:.{precision}f} ({digits})$'
+                    winner = (
+                        group == 'Ours'
+                        and ours[0] < pt[0]
+                        or group == 'Path tracing'
+                        and pt[0] < ours[0]
+                    ) and key == 'lpips'
+                    if winner:
+                        cell = rf'$\mathbf{{{mean:.{precision}f} ({digits})}}$'
+                    else:
+                        cell = f'${mean:.{precision}f} ({digits})$'
+                    row[(group, label)] = cell
             records[(f'\\textsf{{{shorten_volume_name(volume)}}}', mode_label)] = row
     frame = pd.DataFrame.from_dict(records, orient='index')
     frame.index = pd.MultiIndex.from_tuples(frame.index, names=['Volume', 'Illum.'])
@@ -419,7 +440,8 @@ def filter_quality_table(dir):
                 f'${transfer_function}$, evaluated under global and indirect '
                 f'illumination after $0.5$ seconds. Values are means over '
                 '$10$ runs, with standard errors in parentheses, rounded to the '
-                'first significant digit.'
+                'first significant digit. Boldface indicates the better LPIPS '
+                'value in each row.'
             ),
             label='tab:filter-quality',
         )
