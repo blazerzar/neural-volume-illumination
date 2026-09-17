@@ -1,0 +1,35 @@
+\begin{tikzpicture}[
+    rgt/.style={-{Stealth}, semithick, shorten <=4pt, shorten >=4pt},
+    lft/.style={{Stealth}-, semithick, shorten <=4pt, shorten >=4pt},
+    lbl/.style={midway, above, font=\small},
+]
+    \node[rounded corners, draw=gray!40, fill=gray!10,
+        minimum width=2cm, inner sep=6, thick] (b) at (0,0) {Browser};
+    \node[rounded corners, draw=gray!40, fill=gray!10,
+        minimum width=2cm, inner sep=6, thick] (s) at (7,0) {Server};
+        
+    \draw[dashed, gray!60, semithick] (b.south) -- ++(0,-7.3);
+    \draw[dashed, gray!60, semithick] (s.south) -- ++(0,-7.3);
+    
+    \draw[rgt] (b.south |- 0,-1) -- (s.south |- 0,-1)
+        node[lbl] {WebSocket connect};
+    \draw[lft] (b.south |- 0,-2) -- (s.south |- 0,-2)
+        node[lbl] {\textsf{model-created}};
+
+    \draw[rgt] (b.south |- 0,-3.75) -- (s.south |- 0,-3.75)
+        node[lbl] {\textsf{ground-truth(pixel data)}};
+    \draw[lft] (b.south |- 0,-4.75) -- (s.south |- 0,-4.75)
+        node[lbl] {\textsf{metrics(val loss, train time)}};
+
+    \draw[gray!60, semithick]
+        ([xshift=-5mm] b.south |- 0,-2.75) rectangle
+        ([xshift=5mm] s.south |- 0,-5.25);
+    \node[draw=gray!60, fill=gray!10, semithick, font=\small\bfseries,
+          inner sep=3pt, outer sep=0pt, anchor=north west]
+        at ([xshift=-5mm] b.south |- 0,-2.75) {loop};
+
+    \draw[rgt] (b.south |- 0,-6.3) -- (s.south |- 0,-6.3)
+        node[lbl] {\textsf{model-request}};
+    \draw[lft] (b.south |- 0,-7.3) -- (s.south |- 0,-7.3)
+        node[lbl] {\textsf{model-weights(bytes)}};
+\end{tikzpicture}

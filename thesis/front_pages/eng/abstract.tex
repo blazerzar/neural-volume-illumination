@@ -1,0 +1,30 @@
+ %---------------------------------------------------------------
+% SLO: angleški povzetek
+% ENG: english abstract
+%---------------------------------------------------------------
+\selectlanguage{english} % Preklopi na angleški jezik
+\phantomsection
+\addcontentsline{toc}{chapter}{Abstract}
+\chapter*{Abstract}
+
+\noindent\textbf{Title:} \ttitleEn
+\bigskip
+
+Volumetric path tracing is the standard technique for rendering volumetric data,
+preserving all structural information in the resulting images. However, this
+approach is more computationally expensive than surface rendering. This has led
+to numerous optimization techniques, from caching strategies to recent machine
+learning approaches. Building on prior work that used neural networks to predict
+indirect radiance via photon mapping, we propose a method that replaces photon
+mapping with path tracing. This removes the need for a separate training phase
+and enables online model training. Our method is integrated into an existing
+platform-agnostic volumetric path tracer that runs in a browser using WebGPU. We
+achieve an overall $2.06\times$ speedup in GPU-stage computation and a
+$1.28\times$ improvement in frame time over path tracing. We show that our method
+produces frames with less noise and that images produced after $0.5$ seconds of
+rendering are closer to reference images than those produced by path tracing 
+itself, according to the LPIPS perceptual metric.
+
+\subsection*{Keywords}
+\textit{\tkeywordsEn}
+\clearemptydoublepage

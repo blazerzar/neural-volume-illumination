@@ -2,7 +2,7 @@ import os
 import zipfile
 
 IMAGES_DIR = os.path.join('data', 'images')
-OUT_DIR = 'images'
+OUT_DIR = os.path.join('thesis', 'images')
 
 IMAGES = {
     'front': [

@@ -1,0 +1,91 @@
+\begin{tikzpicture}[
+    enc/.style={
+        rounded corners, draw=violet!30, fill=violet!10,
+        align=center, font=\linespread{0.8}\selectfont,
+        minimum width=5, inner sep=6, very thick},
+    fc/.style={
+        rounded corners, draw=cyan!30, fill=cyan!8,
+        align=center, font=\linespread{0.8}\selectfont,
+        minimum width=80, inner sep=6, very thick},
+    relu/.style={
+        rounded corners, draw=orange!40, fill=orange!8,
+        minimum width=80, inner sep=4, very thick},
+    box/.style={rounded corners, draw=gray!45, fill=gray!12,
+        inner sep=4, very thick, font=\small},
+    pad/.style={rounded corners, inner sep=6, very thick},
+    arr/.style={-Stealth, thick},
+    line/.style={-, thick}
+]
+    % MLP ---------------------------------------------------------------
+    \node[fc] (fc1) at (0,0) {Fully\\connected};
+    \node[relu, below=0.15cm of fc1] (relu1) {ReLU};
+    
+    \node[fc, below=0.7cm of relu1] (fc2) {Fully\\connected};
+    \node[relu, below=0.15cm of fc2] (relu2) {ReLU};
+
+    \node[fc, below=0.7cm of relu2] (fc3) {Fully\\connected};
+    % \node[relu, below=0.15cm of fc3] (relu3) {ReLU};
+
+    \node[pad, draw=olive!40, fill=olive!10, minimum width=5,
+        below=0.7cm of fc3] (clamp) {Clamp};
+
+    \node[below=1cm of clamp] (out) {$(r, g, b)$};
+
+    \draw[line] (fc1) -- (relu1);
+    \draw[arr] (relu1) -- (fc2);
+    \draw[line] (fc2) -- (relu2);
+    \draw[arr] (relu2) -- (fc3);
+    \draw[line] (fc3) -- (clamp);
+    % \draw[arr] (relu3) -- (clamp);
+    \draw[arr](clamp) -- (out);
+
+    % Encoding ----------------------------------------------------------
+    \node (xyz)    at (-7.5,0 |- out) {$(x,y,z)$};
+    \node (angles) at (-5,0 |- out) {$(\varphi,\theta)$};
+
+    \coordinate (mid) at ($(xyz)!0.4!(angles)$);
+    \node[enc, minimum width=6.5cm, minimum height=5cm, anchor=south]
+        (box2) at ([xshift=0.15cm]mid |- clamp.south) {};
+    \node[enc, minimum width=6.5cm, minimum height=5cm, anchor=south]
+        (box1) at ([shift={(-0.3cm,0.3cm)}]box2.south) {};
+    \node[draw=violet!30, fill=violet!15, rounded corners,
+        minimum width=5.15cm, minimum height=4.4cm,
+        anchor=east, very thick] (level)
+        at ([xshift=-0.3cm]box1.east) {};
+    \node[anchor=east] at ([xshift=-0.5mm]level.west) {$L\times$};
+
+    % Right column
+    \node[box, anchor=south east, minimum width=3.2cm] (voxels)
+        at ([shift={(-0.2cm,0.2cm)}]level.south east) {Voxel corners};
+    \node[box, anchor=south east, minimum width=2.3cm] (hash)
+    at ([yshift=0.4cm]voxels.north east) {Hashing};
+    \node[box, anchor=south east, minimum width=2.3cm] (emb)
+        at ([yshift=0.4cm]hash.north east) {Embedding}; 
+
+    % Left column
+    \node[box, minimum width=2.2cm] (weights) at (xyz |- emb) {Weights};
+
+    % Top
+    \node[box, anchor=south east, minimum width=4.7cm] (int)
+        at ([yshift=0.4cm]emb.north east) {Linear interpolation}; 
+
+    % Arrows
+    \draw[arr] (xyz) |- (voxels);
+    \draw[arr] (xyz.north) -- (xyz.north |- weights.south);
+    \draw[Stealth-, thick] (hash.south) -- (hash.south |- voxels.north);
+    \draw[arr] (hash.north) -- (hash.north |- emb.south);
+    \draw[arr] (weights.north) -- (weights.north |- int.south);
+    \draw[arr] (emb.north) -- (emb.north |- int.south);
+    \draw[arr] ([xshift=-1.3cm]voxels.north) --
+        ([xshift=-1.3cm]voxels.north |- weights.south);
+
+    \node[pad, draw=purple!50, fill=purple!20,
+        minimum width=4cm, anchor=south] (cat) at ([yshift=7.4cm]mid) {Concat};
+
+    \draw[line] (angles.north) |- (angles.north |- box1.south); 
+    \draw[arr] ([xshift=-0.7cm]cat.south |- int.north) 
+        -- ([xshift=-0.7cm]cat.south);
+    \draw[arr] ([xshift=0.7cm]cat.south  |- box1.north)
+        -- ([xshift=0.7cm]cat.south);
+    \draw[arr] (cat) |- (fc1);
+\end{tikzpicture}

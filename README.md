@@ -1,8 +1,9 @@
 # 💡 Neural Volume Illumination
 
-This repository contains the implementation for a master's thesis completed as
-part of the Data Science master's program at the *Faculty of Computer and
-Information Science* in Ljubljana.
+This repository contains the implementation for the master's thesis
+[*Neural caching of dynamic volume illumination*](thesis/Neural_caching_of_dynamic_volume_illumination.pdf)
+completed as part of the Data Science master's program at the *Faculty of
+Computer and Information Science* in Ljubljana.
 
 <p align="center">
   <img
@@ -25,8 +26,9 @@ The main components of the repository are organized as follows:
 - `evaluation/`: Scripts and notebooks for the final evaluation.
   - `evaluation/experiments/`: JSON declarations for all experiments.
   - `evaluation/results/`: Results of all experiments.
-- `images/`: Experiments and images used in the thesis.
+- `images/`: Experiment and images used in this README.
 - `model/`: Scripts and notebooks for the neural network model.
+- `thesis/`: LaTeX sources of the thesis, plots, tables and final PDF.
 - `web/`: Examples for neural network training and inference in a web browser.
 - `vpt/`: Volumetric path tracer implementation.
 
@@ -124,3 +126,8 @@ The `evaluate_*.py` scripts do the evaluation locally.
 
 The notebooks in the `evaluation/` directory are used to view the results. The
 `final_*.py` scripts are used to generate all the final results programmatically.
+
+## Disclaimer
+
+The [Claude Code](https://claude.com/claude-code) tool was used during the
+implementation of this thesis.

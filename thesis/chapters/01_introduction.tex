@@ -1,0 +1,86 @@
+\chapter{Introduction}
+\label{ch:introduction}
+
+Volumetric data is a collection of samples in 3D space. These samples
+represent values of some properties of data obtained using sampling, simulation,
+or modeling techniques. A common source of such data is medical imaging with
+modalities like \ac{mri}, \ac{ct}, or
+\ac{pet}~\cite[Sections~7.1--7.2]{kaufman_7_2005}.
+
+Volume visualization methods are used to extract useful information from
+such data. Initially, surface rendering techniques were used, but more
+recently volume rendering techniques, most notably path tracing, have been
+employed. Because they use the entire 3D structure, they convey more
+information but are also more computationally
+demanding~\cite[Section~4]{kaufman_43_2000}.
+
+To improve performance, various optimization techniques have been developed.
+Some target specific steps of the algorithm, such as empty space
+skipping~\cite{hadwiger_sparseleap_2018} or early ray
+termination~\cite{matsui_parallel_2005}, while others introduce caching
+mechanisms that speed up the global illumination computation
+step~\cite{krivanek_radiance_2008}.
+
+As in other fields in recent years, computer graphics and volumetric
+rendering have also been shaped by neural networks, from neural importance
+sampling~\cite{muller_neural_2019} and caching~\cite{muller_real-time_2021}
+for mesh data to deep ambient occlusion~\cite{engel_deep_2021} and
+scattering inside clouds~\cite{kallweit_deep_2017} for volumetric data.
+Performance is especially critical for interactive volume visualization,
+where the image must update in real time in response to user input. This
+requires keeping frame times as low as possible, and in many cases neural
+approaches have proved more effective than conventional optimization
+methods.
+
+Bauer \emph{et~al.}~\cite{bauer_photon_2024} trained a neural network to
+predict indirect in-scatter radiance from position, direction, and the phase
+function coefficient. Their training data is generated offline using photon
+mapping, so the model must be trained in a separate precomputation step that
+is repeated for every new volume and delays the first image.
+
+\section{Goal and contributions}
+
+The goal of our work is to shorten the rendering time for generating an image
+in volumetric path tracing, both when a volume is first loaded and when the
+camera moves, so that the renderer remains responsive and supports interactive
+volumetric data analysis.
+
+To achieve this, we propose a new method for online neural caching of indirect
+in-scatter radiance that combines and extends existing approaches, runs
+on all platforms and in the browser, and is vendor-agnostic. Our thesis
+consists of the following contributions:
+\begin{itemize}
+    \item An online training scheme that generates training data using path
+    tracing. Training is done during rendering, removing a separate
+    precomputation step and reducing the time to the first image when a new
+    volume is loaded.
+
+    \item Learned filtering of radiance values. Path-traced samples are
+    generated from the camera view, so we can apply simple 2D image-filtering
+    techniques, e.g., bilateral filtering, before passing data to the model.
+    The network learns the filtered results, so the filtering cost is incurred
+    only during training, not at inference, which is beneficial if the filtering
+    step is more expensive.
+
+    \item An open-source, cross-platform, vendor-agnostic implementation
+    inside an existing volumetric rendering framework.
+
+    \item An extensive evaluation across different configurations and multiple
+    volumes acquired through different techniques. We include all the code for
+    our testing framework along with exact experiment definitions to make
+    results fully reproducible.
+\end{itemize}
+
+\section{Thesis structure}
+
+The remainder of this thesis is organized as follows.
+\Cref{ch:related_work} presents notable work on the development of
+volumetric rendering, caching approaches, and neural methods, including the latest state of the art.
+\Cref{ch:vpt} explains the basic volumetric path tracing preliminaries and
+describes the path tracer that serves as the basis for our implementation.
+\Cref{ch:methods} details our method, both in terms of the
+neural network architecture and the WebGPU implementation.
+\Cref{ch:evaluation} presents our evaluation framework, the experiments
+we conducted, and the results.
+\Cref{ch:conclusion} summarizes our findings and proposes possible directions
+for future work.

@@ -10,7 +10,7 @@ from evaluate_utils import (
     read_quality_results,
 )
 
-TABLES_DIR = os.path.join('evaluation', 'results', 'thesis_tables')
+TABLES_DIR = os.path.join('thesis', 'tables')
 
 
 def main():
@@ -486,6 +486,7 @@ def shorten_volume_name(name):
 
 def save_table(latex, filename):
     file_path = os.path.join(TABLES_DIR, filename)
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
     with open(file_path, 'wt', encoding='utf-8') as f:
         f.write(latex)
 

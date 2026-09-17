@@ -1,0 +1,79 @@
+% \begin{tabular}{l|l|l}
+%   {\bf acronym} & {\bf meaning}  \\ \hline
+%   % after \\: \hline or \cline{col1-col2} \cline{col3-col4} ...
+%   {\bf CA} & classification accuracy \\
+%   {\bf DBMS} & database management system \\
+%   {\bf SVM} & support vector machine \\
+%   ... & ... \\
+% \end{tabular}
+
+\NewAcroTemplate[list]{kratice}{%
+    \acronymsmapF{%
+        \AcroAddRow{%
+            \acrowrite{short} & \acrowrite{list}%
+            \tabularnewline
+        }%
+    }{\AcroRerun}%
+    \acroheading
+    \acropreamble
+    \par\noindent
+    \begin{tabular}{>{\bfseries}l|l}
+        acronym & \bfseries meaning\tabularnewline\hline
+        \AcronymTable
+    \end{tabular}%
+}
+
+\acsetup{
+  list/heading = chapter*,
+  list/name    = List of used acronyms,
+}
+
+\DeclareAcronym{mri}{
+    short = MRI,
+    long  = magnetic resonance imaging
+}
+
+\DeclareAcronym{ct}{
+    short = CT,
+    long = computed tomography
+}
+
+\DeclareAcronym{pet}{
+    short = PET,
+    long = positron emission tomography
+}
+
+\DeclareAcronym{rte}{
+    short = RTE,
+    long = radiative transfer equation
+}
+
+\DeclareAcronym{vre}{
+    short = VRE,
+    long = volume rendering equation
+}
+
+\DeclareAcronym{gpu}{
+    short = GPU,
+    long = graphics processing unit
+}
+
+\DeclareAcronym{fps}{
+    short = FPS,
+    long = frames per second
+}
+
+\DeclareAcronym{ssim}{
+    short = SSIM,
+    long = structural similarity index measure
+}
+
+\DeclareAcronym{lpips}{
+    short = LPIPS,
+    long = learned perceptual image patch similarity
+}
+
+\DeclareAcronym{psnr}{
+    short = PSNR,
+    long = peak signal-to-noise ratio
+}

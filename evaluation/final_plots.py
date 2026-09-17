@@ -16,11 +16,12 @@ from evaluate_utils import (
 )
 from plot_utils import colors, set_legend_style, set_thesis_plot_style
 
-PLOTS_DIR = os.path.join('evaluation', 'results', 'thesis_plots')
+PLOTS_DIR = os.path.join('thesis', 'plots')
 TEXT_WIDTH = 390 / 72.28
 
 
 def main():
+    os.makedirs(PLOTS_DIR, exist_ok=True)
     set_thesis_plot_style()
 
     model_plots()

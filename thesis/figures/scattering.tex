@@ -1,0 +1,39 @@
+\begin{tikzpicture}
+    \filldraw[draw=cyan!15, fill=cyan!5, thick, xscale=1.9]
+        (4.406,0.408)
+        .. controls (4.095,0.173)  and (3.695,0.032)  .. (3.297,0.0)
+        .. controls (2.899,-0.032) and (2.504,0.048)  .. (2.063,0.068)
+        .. controls (1.619,0.089)  and (1.131,0.05)   .. (0.751,0.202)
+        .. controls (0.372,0.356)  and (0.104,0.702)  .. (0.0,1.058)
+        .. controls (-0.104,1.417) and (-0.046,1.786) .. (0.053,2.128)
+        .. controls (0.153,2.471)  and (0.296,2.784)  .. (0.564,2.977)
+        .. controls (0.835,3.169)  and (1.229,3.239)  .. (1.6,3.29)
+        .. controls (1.967,3.344)  and (2.31,3.377)   .. (2.735,3.425)
+        .. controls (3.163,3.471)  and (3.672,3.53)   .. (4.035,3.37)
+        .. controls (4.395,3.211)  and (4.606,2.833)  .. (4.774,2.454)
+        .. controls (4.938,2.073)  and (5.056,1.69)   .. (5.0,1.332)
+        .. controls (4.947,0.975)  and (4.721,0.645)  .. (4.406,0.408)
+        -- cycle;
+
+    \coordinate (sun) at (5,5);
+    \coordinate (start) at (-0.8,1.9);
+
+    \node[circle, fill, inner sep=1.6pt] (a) at (1.4,1.9) {};
+    \node[circle, fill, inner sep=1.6pt] (b) at (4,0.8) {};
+    \node[circle, fill, inner sep=1.6pt] (c) at (8,1.4) {};
+    \node[circle, fill, inner sep=1.6pt] (d) at (6,2.7) {};
+    
+    \shade[inner color=yellow!60, outer color=white] (sun) circle (0.8cm);
+    \node[circle, draw=yellow!90, fill=yellow!20, thick,
+        minimum size=0.6cm, inner sep=0pt] (sun_node) at (sun) {};
+    \draw[-Stealth, semithick] (start) -- (a);
+
+    % Direction radiance
+    \draw[-Stealth, dashed, semithick] (a) -- (sun_node);
+
+    % Indirect radiance 
+    \draw[-Stealth, dotted, semithick] (a) -- (b);
+    \draw[-Stealth, dotted, semithick] (b) -- (c);
+    \draw[-Stealth, dotted, semithick] (c) -- (d);
+    \draw[-Stealth, dotted, semithick] (d) -- (sun_node);
+\end{tikzpicture}

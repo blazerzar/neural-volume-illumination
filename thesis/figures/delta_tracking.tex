@@ -1,0 +1,71 @@
+\begin{tikzpicture}[scale=1.25]
+    % --- fills (painted back to front: gray, then blue, then red) ---
+    % top region: whole box in faded gray
+    \fill[gray!15] (0,0) rectangle (8,3);
+    % middle region: everything below the upper curve in faded blue
+    \fill[cyan!20] (0,2.55)
+        .. controls (0.4,2.0)  and (0.7,2.04)  .. (1.04,2.02)
+        .. controls (1.45,2.00) and (1.69,1.88) .. (2.09,1.52)
+        .. controls (2.54,1.09) and (3.34,0.52) .. (4.49,1.09)
+        .. controls (5.2,1.4)   and (5.2,2.20)  .. (5.61,2.22)
+        .. controls (6.1,2.23)  and (6.15,1.35) .. (6.75,1.37)
+        .. controls (7.4,1.39)  and (7.38,1.9)  .. (8.0,2.02)
+        -- (8,0) -- (0,0) -- cycle;
+    % bottom region: everything below the lower curve in faded red
+    \fill[red!20] (0,0.77)
+        .. controls (0.67,1.26) and (1.23,1.34) .. (1.92,1.07)
+        .. controls (2.74,0.76) and (3.30,0.17) .. (4.28,0.60)
+        .. controls (4.64,0.76) and (5.03,0.83) .. (5.43,0.77)
+        .. controls (5.91,0.70) and (6.24,0.34) .. (6.84,0.36)
+        .. controls (7.41,0.39) and (7.67,0.76) .. (8.0,1.22)
+        -- (8,0) -- (0,0) -- cycle;
+
+    % --- outlines ---
+    \draw[thick, cyan!60] (0,2.55)
+        .. controls (0.4,2.0)  and (0.7,2.04)  .. (1.04,2.02)
+        .. controls (1.45,2.00) and (1.69,1.88) .. (2.09,1.52)
+        .. controls (2.54,1.09) and (3.34,0.52) .. (4.49,1.09)
+        .. controls (5.2,1.4)   and (5.2,2.20)  .. (5.61,2.22)
+        .. controls (6.1,2.23)  and (6.15,1.35) .. (6.75,1.37)
+        .. controls (7.4,1.39)  and (7.38,1.9)  .. (8.0,2.02);
+    \draw[thick, red!60] (0,0.77)
+        .. controls (0.67,1.26) and (1.23,1.34) .. (1.92,1.07)
+        .. controls (2.74,0.76) and (3.30,0.17) .. (4.28,0.60)
+        .. controls (4.64,0.76) and (5.03,0.83) .. (5.43,0.77)
+        .. controls (5.91,0.70) and (6.24,0.34) .. (6.84,0.36)
+        .. controls (7.41,0.39) and (7.67,0.76) .. (8.0,1.22);
+    \draw[thick] (0,3) -- (8,3) -- (8,0);
+
+    % --- text ---
+    \node[gray!80] at (7.78,2.5) {\footnotesize $\sigma_n$}; 
+    \node[cyan!80] at (7.78,1.5) {\footnotesize $\sigma_s$}; 
+    \node[red!80] at (7.78,0.5) {\footnotesize $\sigma_a$}; 
+    \node at (-0.2,3)   {\footnotesize $\overline\sigma$}; 
+
+    % --- sampling ---
+    % named points
+    \coordinate (x0) at (0,   1.35);  % start of x -> x_t arrow
+    \coordinate (x1) at (1.8, 2.2);   
+    \coordinate (x2) at (3.4, 0.7);
+    \coordinate (x3) at (5.0, 2.0);
+    \coordinate (x4) at (6.6, 0.2);
+    \def\lbly{-0.25}                   % y of the bottom-axis labels
+    
+    \draw[-Stealth, semithick] (x0) -- ([xshift=-0.05cm] x1 |- x0)
+        node[midway, above] {\footnotesize $t \sim \mathrm{Exp}(\overline\sigma)$};
+    \draw[Stealth-Stealth, semithick] (x1 |- 0,0.05) -- (x1 |- 0,2.95);
+    
+    \fill (x1) circle[radius=1.5pt];
+    \fill (x2) circle[radius=1.5pt];
+    \fill (x3) circle[radius=1.5pt];
+    \fill (x4) circle[radius=1.5pt];
+    
+    \node at (x0 |- 0,\lbly) {\footnotesize $\mathbf{x}_0$};
+    \node at (x1 |- 0,\lbly) {\footnotesize $\mathbf{x}_1$};
+    \node at (x2 |- 0,\lbly) {\footnotesize $\mathbf{x}_2$};
+    \node at (x3 |- 0,\lbly) {\footnotesize $\mathbf{x}_3$};
+    \node at (x4 |- 0,\lbly) {\footnotesize $\mathbf{x}_4$};
+    
+    % --- axes ---
+    \draw[Stealth-Stealth, very thick] (0,3.5) -- (0,0) -- (8.5,0);
+\end{tikzpicture}

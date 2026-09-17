@@ -1,0 +1,407 @@
+\chapter{Volumetric path tracing}
+\label{ch:vpt}
+
+We already introduced volumetric data and rendering in previous chapters,
+but now we will go into more detail before presenting our own method in
+\Cref{ch:methods}. First, we formally describe volumetric data, then we
+introduce delta tracking, the sampling technique used to handle heterogeneous
+media, and finally we present the volumetric path tracer that our work builds
+on. For reference, \Cref{tab:notation} lists the notation used throughout this and the following chapters.
+
+\begin{table}[p]
+    \renewcommand{\arraystretch}{0.93}
+    \centering
+    \footnotesize
+    \caption{Summary of used mathematical notation.}
+    \label{tab:notation}
+    \begin{tabular}{ll}
+        \textbf{Symbol}                 & \textbf{Description} \\
+        \midrule
+        $\mathbf{x}$                    & Position vector \\
+        $\omega$                        & Direction vector \\
+        $v(\mathbf{x})$                 & Volumetric data value \\
+        $(\omega \cdot \nabla)$         & Directional derivative \\
+        $\int_{S^2}$                    & Integral over a spherical domain \\
+        $\langle \cdot \rangle$         & Monte Carlo estimator \\
+        $\log$                          & Natural logarithm \\
+        $\xi$                           & Random number \\
+        $\mathbf{x}_t$                  & Point along a ray \\
+        $t$, $d$                        & Ray parameters \\
+        $t \sim q(t)$                   
+            & $t$ distributed according to probability density $q$ \\
+        \hline        
+        $L(\mathbf{x}, \omega)$         & Radiance field \\
+        $L_s(\mathbf{x}, \omega)$       & In-scattering radiance field \\
+        $L_e(\mathbf{x}, \omega)$       & Emission radiance field \\  
+        $T(t)$                          & Transmittance \\
+
+        \hline         
+        $\sigma_a(\mathbf{x})$          & Absorption coefficient \\ 
+        $\sigma_s(\mathbf{x})$          & Scattering coefficient \\ 
+        $\sigma_t(\mathbf{x}) = \sigma_a(\mathbf{x}) + \sigma_s(\mathbf{x})$
+                                        & Extinction coefficient \\ 
+        $\sigma_n(\mathbf{x})$          & Null-collision coefficient \\ 
+        $\overline\sigma = \sigma_t(\mathbf{x}) + \sigma_n(\mathbf{x})$
+                                        & Free-path coefficient \\
+        \hline
+        $P_a(\mathbf{x})$               & Absorption probability \\
+        $P_s(\mathbf{x})$               & Scattering probability \\
+        $P_n(\mathbf{x})$               & Null-collision probability \\
+        \hline
+        $f_p(\mathbf{x}, \omega, \omega')$
+                                        & Phase function \\
+        $p(\theta)$                     & Henyey-Greenstein phase function \\
+        $g$                             & Anisotropy or asymmetry parameter \\ 
+        $\theta(\omega)$                & Angle of vector $\omega$ \\
+        $f_t(v)$                        & Transfer function \\
+        $(\cdot)^{(a)}, (\cdot)^{(r)}, (\cdot)^{(g)}, (\cdot)^{(b)}$
+            & Alpha, red, green and blue component of a color \\
+        \hline
+        $L$                             & Number of encoding levels \\
+        $F$                             & Encoding feature dimension \\
+        $N_{\min}^{\text{pos}}$, $N_{\max}^{\text{pos}}$,
+        $N_{\min}^{\text{dir}}$, $N_{\max}^{\text{dir}}$
+                                        & Resolutions for
+                                          position and direction encodings \\
+        $T$                             & Maximum encoding table size \\
+        \hline
+        $\mathbf{c}$, $\mathbf{c}_n$    & RGB color triplet \\
+        $\sigma_k$, $\sigma$, $\tau$    & Bilateral filter parameters \\
+        $r$                             & Bilateral filter radius \\
+        $w_d$, $w_r$                    & Spatial and range weights \\
+    \end{tabular}
+\end{table}
+
+\section{Volumetric data}
+
+A set of samples $(x, y, z, v)$ in 3D space is called \emph{volumetric data}.
+These samples, also called \emph{voxels} when positioned on a regular grid,
+represent a value $v$ at the 3D location $(x, y, z)$. The data is binary if
+$v$ is either $0$ or $1$, but values can also be integers from a set,
+multivalued, or even vectors. Values usually represent some measurable property,
+such as color or velocity, as in \ac{mri} and \ac{ct}
+imaging~\cite{kaufman_7_2005, kaufman_43_2000}.
+
+Samples can be taken at random locations, but if they are taken at constant 
+intervals along all orthogonal axes, the data is \emph{isotropic}. If each
+axis has a different spacing, the data is \emph{anisotropic} instead. An example
+of anisotropic volumetric data is medical imaging, because image slices are
+usually spaced differently from in-plane samples. Both isotropic and
+anisotropic sets are defined on a regular grid and can be stored in a 3D array.
+We call such sets simply \emph{volumes}. However, not all medical imaging
+modalities are isotropic. An example of such a modality is 3D ultrasound,
+which is defined on a non-Cartesian grid, such as the acoustic
+grid~\cite{fernando_chapter_2004}.
+
+\section{Light in volumes}
+
+When rendering an image, our goal is to compute the amount of light entering
+the camera when looking in a certain direction. In surface rendering, we send
+rays into the scene and bounce them off the surfaces. When working with volumes,
+this is not enough because light also interacts with the particles inside
+the volume itself. When a photon hits a volume, it begins interacting with
+particles inside the volume. These collisions define the volume radiance
+distribution~\cite{fong_production_2017, wrenninge_production_2012}.
+
+\begin{figure}[b]
+    \centering
+    \input{figures/rte}
+    \caption{Four possible light interaction events inside volumes.}
+    \label{fig:rte}
+\end{figure}
+
+\begin{figure}[b]
+    \centering
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \includegraphics[width=0.85\textwidth]{absorption.png}
+    \end{subfigure}
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \includegraphics[width=0.85\textwidth]{scattering.png}
+    \end{subfigure}
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \includegraphics[width=0.85\textwidth]{emission.png}
+    \end{subfigure}
+    
+    \caption{
+        Examples of a purely absorptive (left), scattering (middle) and
+        emissive (right) volume~\cite{wrenninge_production_2011}.
+    }
+    \label{fig:interactions}
+\end{figure}
+
+More formally, we want to obtain radiance $L$ when looking in
+direction~$\omega$. This is done using the \emph{\ac{rte}}, which defines the
+radiance distribution and represents the equilibrium radiance field $L$ as a
+function of two parameters, position $\mathbf{x}$ and direction $\omega$. It
+contains four terms, which are visualized in \Cref{fig:rte}. Each term
+contributes to the change in radiance, which can be described using a
+directional derivative:
+\begin{itemize}
+    \item \emph{Absorption} is the loss of radiance when a photon is absorbed by
+    the medium. It is proportional to the radiance at that point, and using the
+    \emph{absorption coefficient} $\sigma_a$ we write:
+    \begin{equation}
+        (\omega \cdot \nabla) L(\mathbf{x}, \omega) =
+            -\sigma_a(\mathbf{x}) L(\mathbf{x}, \omega).
+    \end{equation}
+
+    \item \emph{Out-scattering} is the loss of radiance when a photon hits a
+    particle that reflects it in a direction other than $\omega$. It is also
+    proportional to the radiance at that point, but here we use the
+    \emph{scattering coefficient} $\sigma_s$:
+    \begin{equation}
+        (\omega \cdot \nabla) L(\mathbf{x}, \omega) =
+            -\sigma_s(\mathbf{x}) L(\mathbf{x}, \omega).
+    \end{equation}
+
+    \item \emph{Emission} occurs when molecules are hot enough to emit photons
+    in all directions. If $L_e$ is the radiance field of emitted light, we
+    write:
+    % The radiance that is emitted is a separate radiance field $L_e$ using which we write:
+    \begin{equation}
+        (\omega \cdot \nabla) L(\mathbf{x}, \omega) =
+            \sigma_a(\mathbf{x}) L_e(\mathbf{x}, \omega). 
+    \end{equation}
+    Depending on the derivation, some authors may omit the absorption
+    coefficient here.
+
+    \item \emph{In-scattering} is the reverse of out-scattering. It is a
+    contribution of radiance when a photon traveling in some other direction
+    $\omega'$ hits a particle and is reflected into the direction $\omega$.
+    The angular distribution of scattering, i.e., the probability of scattering 
+    from angle $\omega'$ to $\omega$, is modeled by a
+    \emph{phase function} $f_p(\mathbf{x}, \omega, \omega')$. Because we have
+    to take into account all the angles from which photons can travel,
+    we write this term using an integral over the entire spherical domain:
+    \begin{align}
+        (\omega \cdot \nabla) L(\mathbf{x}, \omega) &=
+            \sigma_s(\mathbf{x})
+            \int_{\mathit{S}^2} f_p(\mathbf{x}, \omega, \omega')
+            L(\mathbf{x}, \omega')\, \mathrm{d}\omega' \\
+        &= \sigma_s(\mathbf{x}) L_s(\mathbf{x}, \omega).
+    \end{align}
+    An additional term $L_s$ is also introduced to make the notation more concise.
+\end{itemize}
+In \Cref{fig:interactions}, we see how each of these interactions by itself
+affects the same volume.
+
+The final \ac{rte} is obtained by combining all of the terms:
+\begin{equation}
+    (\omega \cdot \nabla) L(\mathbf{x}, \omega) =
+        -\sigma_t(\mathbf{x}) L(\mathbf{x}, \omega)
+        +\sigma_a(\mathbf{x}) L_e(\mathbf{x}, \omega) 
+        +\sigma_s(\mathbf{x}) L_s(\mathbf{x}, \omega),
+\end{equation}
+where $\sigma_t = \sigma_a + \sigma_s$ is the \emph{extinction coefficient},
+This substitution is made because of the similarity between absorption and
+out-scattering.
+
+Before writing the final rendering equation, we introduce \emph{transmittance}
+\begin{equation}
+    \label{eq:transmittance}
+    T(t) = \exp \left( -\int_0^t \sigma_t(\mathbf{x}_s)\, \mathrm{d}s \right),
+\end{equation}
+which is the reduction factor between $\mathbf{x}$ and a position on the ray 
+$\mathbf{x}_t = \mathbf{x} - t\omega$ due to absorption and out-scattering.
+We use it after integrating the \ac{rte} on both sides to write the
+\emph{\ac{vre}}:
+\begin{align}
+    \label{eq:vre}
+    L&(\mathbf{x}, \omega) =
+        \int_0^d T(t) \bigg[
+            \sigma_a(\mathbf{x}_t) L_e(\mathbf{x}_t, \omega)  
+            + \sigma_s(\mathbf{x}_t) L_s(\mathbf{x}_t, \omega)
+            + L(\mathbf{x}_d, \omega)
+        \bigg]\, \mathrm{d}t \\
+    &= \int_0^d T(t) \bigg[
+            \sigma_a(\mathbf{x}_t) L_e(\mathbf{x}_t, \omega)  
+            + \sigma_s(\mathbf{x}_t) L_s(\mathbf{x}_t, \omega)
+        \bigg]\, \mathrm{d}t
+        + T(d) L(\mathbf{x}_d, \omega).
+\end{align}
+The integrating ray ends at parameter $d$, where it hits the surface or another
+volume.
+
+\section{Delta tracking}
+
+If we focus on scenes without surfaces, we only have to solve the integral in
+the \ac{vre}. For this, we use Monte Carlo integration. We can write a
+single-point Monte Carlo estimator that we need to
+evaluate~\cite{novak_monte_2018}:
+\begin{equation}
+    \left\langle L(\mathbf{x}, \omega) \right\rangle =
+        \frac{T(t)}{q(t)} 
+        \bigg[
+            \sigma_a(\mathbf{x}_t) L_e(\mathbf{x}_t, \omega)  
+            + \sigma_s(\mathbf{x}_t) L_s(\mathbf{x}_t, \omega)
+        \bigg],
+\end{equation}
+where $t$ is sampled according to distribution $q$. This distribution should
+be as close to $T$ as possible to reduce the estimator variance. In
+homogeneous volumes with constant $\sigma_t$, transmittance can be simplified,
+inverted, and importance sampled. However, in general, volumes have 
+heterogeneous density, and we have to use \emph{delta tracking}, sometimes
+called \emph{Woodcock tracking}~\cite{woodcock_techniques_1965}.
+
+The idea is to introduce a fictitious volume that, together with our original
+volume, forms a homogeneous volume. We choose a \emph{null-collision coefficient}
+$\sigma_n$ such that the \emph{free-path coefficient}
+\begin{equation}
+    \overline\sigma
+        = \sigma_a(\mathbf{x}) + \sigma_s(\mathbf{x}) + \sigma_n(\mathbf{x})
+        = \sigma_t(\mathbf{x}) + \sigma_n(\mathbf{x}) 
+\end{equation}
+is constant. It follows that the transmittance in \Cref{eq:transmittance}
+simplifies to
+\begin{equation}
+    T_{\overline\sigma}(t) = \exp(-t \overline\sigma).
+\end{equation}
+\Cref{eq:vre} can now be written as
+\begin{align}
+\begin{split}
+    \label{eq:null_vre}
+    L(\mathbf{x}, \omega) =
+        \int_0^d T_{\overline\sigma}(t) \bigg[
+            &\sigma_a(\mathbf{x}_t) L_e(\mathbf{x}_t, \omega)
+            + \sigma_s(\mathbf{x}_t) L_s(\mathbf{x}_t, \omega) \\
+            &+ \sigma_n(\mathbf{x}_t) L(\mathbf{x}_t, \omega)
+            + L(\mathbf{x}_d, \omega)
+        \bigg]\, \mathrm{d}t.
+\end{split}
+\end{align}
+Alongside the existing terms for emission or absorption and in-scattering,
+we now have an additional term for null collisions. The estimator for this
+equation without the surface term is now
+\begin{align}
+\begin{split}
+    \label{eq:vre_mc}
+    \left\langle L(\mathbf{x}, \omega) \right\rangle =
+        \frac{T_{\overline\sigma}(t)}{q_{\overline\sigma}(t)} 
+        \bigg[
+            \sigma_a(\mathbf{x}_t) L_e(\mathbf{x}_t, \omega)  
+            &+ \sigma_s(\mathbf{x}_t) L_s(\mathbf{x}_t, \omega) \\
+            &+ \sigma_n(\mathbf{x}_t) L(\mathbf{x}_t, \omega)
+        \bigg].
+\end{split}
+\end{align}
+The total extinction coefficient is constant, so we know how to compute
+$T_{\overline\sigma}$ and sample proportionally to it:
+\begin{equation}
+    \label{eq:q_pdf}
+    t \sim q_{\overline\sigma}(t) = \overline\sigma \exp(-t \overline\sigma).
+\end{equation}
+With inverse sampling, we can sample a random number $\xi \in (0, 1]$ and compute
+\begin{equation}
+    t(\xi) = -\frac{\log(\xi)}{\overline\sigma}.
+\end{equation}
+
+After sampling a distance $t$ of a possible collision event, there are three
+components in \Cref{eq:vre_mc} to evaluate. In delta tracking, we classify
+the event as either a null collision, scattering, or absorption based on the
+probabilities we get if we express probability density in terms of transmittance
+and insert it into \Cref{eq:vre_mc}:
+\begin{align}
+    \label{eq:delta}
+    \left\langle L(\mathbf{x}, \omega) \right\rangle &=
+        \frac{\sigma_a}{\overline\sigma} L_e(\mathbf{x}_t, \omega)  
+        + \frac{\sigma_s}{\overline\sigma} L_s(\mathbf{x}_t, \omega)
+        + \frac{\sigma_n}{\overline\sigma} L(\mathbf{x}_t, \omega) \\
+    &= P_a(\mathbf{x}_t) L_e(\mathbf{x}_t, \omega)  
+        + P_s(\mathbf{x}_t) L_s(\mathbf{x}_t, \omega)
+        + P_n(\mathbf{x}_t) L(\mathbf{x}_t, \omega).
+\end{align}
+The probabilities are thus based on ratios between coefficients:
+\begin{equation}
+    \label{eq:probs}
+    P_a(\mathbf{x}) = \frac{\sigma_a(\mathbf{x})}{\overline\sigma}, \qquad
+    P_s(\mathbf{x}) = \frac{\sigma_s(\mathbf{x})}{\overline\sigma}, \qquad
+    P_n(\mathbf{x}) = \frac{\sigma_n(\mathbf{x})}{\overline\sigma}.
+\end{equation}
+
+\begin{figure}[t]
+    \centering
+    \input{figures/delta_tracking}
+    \caption{
+        Four steps of delta tracking in a heterogeneous volume. At each step,
+        the step size is sampled from an exponential distribution and a D3 die
+        is tossed. We either hit the fictitious volume ($\mathbf{x}_1$,
+        $\mathbf{x}_3$) or the real volume with a scattering ($\mathbf{x}_2$)
+        or an absorption event ($\mathbf{x}_4$).
+    }
+    \label{fig:delta}
+\end{figure}
+
+Evaluating \Cref{eq:delta} exactly would require computing all three terms
+on the right-hand side. Instead, we can use Russian roulette for each term,
+evaluating it and dividing by $P$ to keep the estimator unbiased with
+probability $P$ from \Cref{eq:probs}, and treating it as $0$ with probability
+$1 - P$. Applied to each term, this would still require evaluating each term
+independently. However, since
+$P_a(\mathbf{x}) + P_s(\mathbf{x}) + P_n(\mathbf{x}) = 1$, we can correlate
+all three Russian roulettes into a single random decision and evaluate only
+one term without affecting the result.
+
+In practice, this means that at each ray-tracing step, we roll a D3 die with
+these probabilities. If a null collision is selected, we hit the fictitious
+volume, so we move forward without changing direction. Otherwise, we hit the
+actual volume. In the case of scattering, we still move forward but also change
+direction according to the phase function. In the case of absorption, ray 
+tracing is stopped. Four steps of this process are visualized in
+\Cref{fig:delta}.
+
+\section{VPT}
+
+We base our work on an existing volumetric path tracer,
+\emph{VPT}~\cite{lesar_real-time_2018}. It runs in a browser and is therefore
+cross-platform. The initial implementation used the WebGL API for graphics
+programming, but we use the updated version rewritten for the newer WebGPU API.
+
+It implements delta tracking with multiple scattering and can be configured using:
+\begin{itemize}
+    \item \emph{Extinction.} Rate of the exponential distribution used when
+    sampling the step size $t$.
+
+    \item \emph{Anisotropy.} Parameter $g \in (-1, 1)$ of the Henyey-Greenstein
+    phase function, which models the scattering angle:
+    \begin{equation}
+        p(\theta) = \frac{1}{4\pi}
+            \frac{1 - g^2}{(1 + g^2 - 2g\cos\theta)^{3/2}}.
+    \end{equation}
+    Depending on the value of $g$, we either have isotropic scattering ($g = 0$),
+    forward scattering ($g > 0$), or backward scattering
+    ($g < 0$)~\cite{fong_production_2017}.
+
+    \item \emph{Bounces.} Upper bound on the number of real scattering events
+    in a single iteration.
+    
+    \item \emph{Steps.} Upper bound on the number of events (null collision,
+    scattering, or absorption) in a single iteration.
+
+    \item \emph{Transfer function.} Mapping $f_t$ of grayscale volume values
+    $v \in [0, 255]$ to color. This allows us to modify the overall color of
+    the volume, either on its surface or inside it.
+\end{itemize}
+
+The path tracer determines the pixel color by tracing a ray until it goes out
+of bounds. In the case of an absorption event, the pixel is colored black.
+During scattering events, the color contribution $f_t(v)$ is accumulated into
+the transmittance, and the direction $\omega$ is updated according to
+$p(\theta(\omega))$. Null collision events do not change the ray’s path, and
+if the ray reaches the boundary of the scene, the pixel color is computed from
+the accumulated transmittance. At each interaction point, the type of event is
+chosen stochastically according to the following probabilities:
+\begin{align}
+    P_n(\mathbf{x}) &= 1 - f_t(v(\mathbf{x}))^{(a)}, \\
+    P_s(\mathbf{x}) &= f_t(v(\mathbf{x}))^{(a)} \cdot \max\{
+        f_t(v(\mathbf{x}))^{(r)},
+        f_t(v(\mathbf{x}))^{(g)},
+        f_t(v(\mathbf{x}))^{(b)}
+    \}, \\
+    P_a(\mathbf{x}) &= 1 - P_n(\mathbf{x}) - P_s(\mathbf{x}).
+\end{align}
+Here, the superscripts $(r)$, $(g)$, $(b)$, and $(a)$ denote the red, green,
+blue, and alpha channels of the RGBA color returned by the transfer function
+$f_t$, respectively.

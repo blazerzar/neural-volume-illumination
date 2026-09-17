@@ -1,0 +1,45 @@
+\chapter{Conclusion}
+\label{ch:conclusion}
+
+This thesis explored the field of volumetric path tracing and methods for improving
+the performance of volumetric rendering. We examined how the field developed and
+what the latest advancements were. The foundation for our work was the Photon Field
+Networks paper by Bauer \emph{et~al.}~\cite{bauer_photon_2024}. We extended their
+approach by applying it to a path tracer. To do this, we built on an existing
+browser-based volumetric path tracer, VPT. We split the radiance calculation into
+direct and indirect illumination and made it possible to use the indirect radiance
+values as ground truth for our model training. To enable online training, we sent
+data from the browser to a training server running on the same machine. During
+training, path tracing was already producing images, and after training was
+complete, neural rendering allowed us to replace the time-consuming indirect
+illumination stage with a faster model inference.
+
+We showed that our method achieved an overall speedup of $2$ in the indirect
+illumination \ac{gpu} stage, with the overall frame time speedup dropping to
+around $1.2$. Because our model only approximates transparency, we do not reach
+path tracing quality in image metrics for converged images, but our method
+performs better on initial frames. Our images tend to achieve better metrics
+after $0.5$ seconds, and we also showed that a single frame with multiple
+samples is less noisy in our case. Because we used path tracing, we were able
+to apply a filtering method on top of our ground truth data, which our model
+was able to learn. However, we also found limitations of our method in
+configurations where it fails to generate a good image, or any image at all.
+
+\section{Future work}
+
+In our work, we focused on demonstrating that our approach functions correctly,
+but there are still opportunities to improve and extend it. The model’s forward
+pass in the WebGPU shader could be further optimized using different techniques,
+and support for WebGPU itself is continuously improving. With better support for
+\ac{gpu} computation in the browser, training could also be performed there,
+eliminating the need for a separate training server.
+
+As shown in our results, image quality is the main area that could be improved.
+We only predicted color and approximated transparency, which led to lower quality
+metrics. The model could be extended to predict transparency directly, and we
+could experiment with colors in different color spaces. Using colors before gamma
+correction might be beneficial for predicting extremely dark scenes, which we
+are currently unable to capture. Another limitation is that changing rendering
+parameters requires retraining the model from scratch because it is tied to a
+specific configuration. This could be addressed by fine-tuning the model instead
+of retraining it for small parameter changes, making subsequent training faster.

@@ -1,0 +1,20 @@
+\appendix
+\crefalias{chapter}{appendix}
+
+\chapter{Additional image quality results}
+\label{ch:quality}
+
+This appendix presents image quality metrics for the remaining datasets for
+both global and indirect illumination, covering all combinations of extinction
+coefficient and transfer function.
+
+\makeatletter
+\newcommand{\qualitytables}[1]{%
+    \@for\vol:=#1\do{%
+        \input{tables/quality/\vol_0-5_global}
+        \input{tables/quality/\vol_0-5_indirect}
+    }%
+}
+\makeatother
+
+\qualitytables{bonsai,csafe_heptane,frog,marmoset_neurons,miranda,mri_ventricles,silicium,vismale}

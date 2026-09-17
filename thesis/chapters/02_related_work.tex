@@ -1,0 +1,97 @@
+\chapter{Related work}
+\label{ch:related_work}
+
+Much of the previous work in this field has focused on developing and refining
+rendering methods. We examine fundamental rendering techniques, early
+optimizations using caching, and the more recent adoption of neural networks,
+and show how all of these have influenced the latest state-of-the-art methods.
+
+\section{Volume rendering}
+
+To simplify volumetric rendering, early methods rendered volumes using
+geometric primitives~\cite[Section~7.3]{kaufman_7_2005}. Most commonly, these
+primitives were triangles and could be rendered using traditional techniques.
+They approximate a surface within the volume, obtained using a segmentation
+function. For one such function, the resulting surface is called an
+\emph{isosurface}, and an example of an algorithm that generates and renders
+it is the \emph{marching cubes} algorithm.
+
+Accurate surface approximations may require a lot of space, but even then only
+the surface is used and information from data within the volume is lost. The
+answer to this problem was so-called \emph{direct volume rendering}
+methods~\cite[Section~4]{kaufman_43_2000}. They generate an image directly
+from 3D data. This can be achieved using object-order (how each data point
+affects pixels), image-order (how all data points contribute to each pixel),
+or domain-based techniques (transform 3D data into another domain and create
+a projection).
+
+One of the first image-order methods was \emph{ray marching}, which solves the
+rendering equation by stepping along a ray. Later, the same problem was solved
+stochastically instead using Monte Carlo
+\emph{path tracing}~\cite{fong_production_2017}, which samples positions along
+the ray rather than marching in fixed increments.
+
+\section{Optimizations with caching}
+
+Advanced rendering methods are computationally demanding, which has led to
+the development of various optimization techniques. One such technique is
+caching, first introduced for surface rendering Monte Carlo ray tracing by
+Ward \emph{et~al.}~\cite{ward_ray_1988} and extended by
+K\v{r}iv{\'a}nek \emph{et~al.}~\cite{krivanek_radiance_2008}. In this approach,
+a cache stores radiance values. At each step, the system checks whether a cache
+record exists. If it does, gradient interpolation is performed; otherwise, the
+radiance is computed and stored in the cache.
+
+Later, Khlebnikov \emph{et~al.}~\cite{khlebnikov_parallel_2014} applied caching
+to volumetric rendering as well. Because volumetric rendering is usually
+performed on graphics processors, traditional caching was not suitable
+for this setting, so they had to run three tasks in parallel on the \ac{gpu}.
+Their rendering procedure checks whether cached information is available for
+each scattering event. If it is, irradiance is extrapolated; otherwise, new
+entries are created. They also update the cache continuously to remove any
+discontinuities.
+
+\section{Neural networks}
+
+Neural networks were first used to improve importance sampling for Monte Carlo
+integration~\cite{muller_neural_2019}. In 2021, M\"uller \emph{et~al.} replaced
+the traditional caching mechanism in surface rendering with a neural network
+\cite{muller_real-time_2021}. They used a single network to predict radiance
+values from spatio-directional coordinates, training it in real time. They cached
+\emph{scattered radiance} because it is computationally the most expensive
+component. The following year, M\"uller \emph{et~al.} introduced Multiresolution
+Hash Encoding~\cite{muller_instant_2022}, which encodes position and direction
+inputs into higher-dimensional representations to improve reconstruction quality
+while still supporting various real-time tasks.
+
+As with surface rendering, neural networks also began to appear in volumetric
+rendering research. In Deep Scattering (2017), Kallweit
+\emph{et~al.}~\cite{kallweit_deep_2017} used a model to render clouds.
+The solution to the radiative transfer equation is a recursive relation that is
+expensive to compute with Monte Carlo integration. They initially attempted to
+predict the complete in-scattered radiance, but the model struggled with the
+direct illumination radiance. Instead, they learned only the multi-scattered
+paths, i.e., the \emph{indirect in-scattered radiance}, and used Monte Carlo
+integration for the rest. One of the first uses of deep learning for volumetric
+lighting is Deep Volumetric Ambient Occlusion (2020) by Engel and
+Ropinski~\cite{engel_deep_2021}. They used a 3D encoder-decoder convolutional
+neural network to predict ambient occlusion at a lower resolution. The volume
+itself is rendered at full resolution, and the ambient occlusion is sampled
+from the lower-resolution result.
+
+\section{State of the art}
+
+The latest state-of-the-art methods were introduced by Bauer \emph{et~al.}
+In 2023, they presented Photon Field Networks~\cite{bauer_photon_2024},
+replacing costly sampling steps with constant-time neural network inference to
+achieve real-time volumetric global illumination. Their network predicted indirect
+in-scatter radiance in the same way as Deep Scattering. They added the phase
+function coefficient to position and direction inputs, for which they used
+Multiresolution Hash Encoding. The model used fully connected layers and
+predicted logarithm-encoded radiance for normalization. It was trained offline
+using ground truth data obtained with photon mapping, which contains less
+stochastic noise than path tracing. Then in 2025, they returned to caching
+with GSCache~\cite{bauer_gscache_2026}. They used 3D Gaussian splatting functions
+as a multi-level radiance cache. Each level is a point cloud of 3D Gaussians used
+for paths of a specific length and is rasterized into images using Gaussian
+splatting. In both cases, they improved performance over plain path tracing.

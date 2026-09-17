@@ -1,0 +1,771 @@
+\chapter{Evaluation}
+\label{ch:evaluation}
+
+We evaluate our method on a machine with an Intel Core i5-13600KF processor,
+\qty{32}{\giga\byte} of memory, and an NVIDIA RTX 3090 \ac{gpu}, using nine
+volumetric datasets from Open SciVis Datasets~\cite{mccormick_ome-zarr_2026}:
+\textsf{bonsai}, \textsf{chameleon}, \textsf{(csafe) heptane}, \textsf{frog},
+\textsf{(marmoset) neurons}, \textsf{miranda}, \textsf{(mri) ventricles},
+\textsf{silicium}, and \textsf{vismale}. To simulate increasing complexity,
+we define three transfer functions per volume with one, two, and three colors,
+respectively. Our evaluation covers the model and its training behavior, the
+performance of online training and neural rendering, and the resulting image
+quality.
+
+\section{Framework}
+
+To automate our evaluation, we implement a benchmark runner inside VPT, which
+allows us to run batches of experiments. Experiments are defined in JSON files,
+which specify the volume and transfer function files, the file server that
+serves these files, benchmark time, experiment-specific options, and VPT
+configuration. We support the following experiment types:
+\begin{itemize}
+    \item \emph{Model.} Generate ground truth data for offline model evaluation.
+    
+    \item \emph{Image.} Render and store accumulated images after the given
+    amount of time, using either path tracing or neural rendering.
+    
+    \item \emph{Performance.} Render for the given amount of time using either
+    path tracing or neural rendering and store frame time and timings for all
+    stages, captured periodically in a CSV file.
+    
+    \item \emph{Online.} Evaluate online model training in terms of training
+    time and validation loss, captured periodically in a CSV file.
+    
+    \item \emph{Quality.} Run multiple iterations of an experiment, periodically 
+    capturing images generated with either path tracing or neural rendering and
+    storing them in a ZIP archive for later quality evaluation.
+\end{itemize}
+
+In all evaluation experiments, we use a resolution of $512 \times 512$, an
+anisotropy coefficient of $0$, $50$ bounces, and $2000$ steps. We use $5$
+samples, except in experiments where we vary the number of samples itself.
+For variability, we run most experiments with three extinction values: $80$,
+$200$, and $1000$. Each volume has two predefined camera presets: one static
+and one dynamic using a turntable approach. This setup allows us to evaluate
+how well the method performs in interactive scenarios.
+
+\section{Model loss}
+
+We evaluate the model's learning capability using the loss curves in
+\Cref{fig:model_chameleon,fig:model_ventricles}. The model was trained offline
+with ground truth data exported from VPT. The performance strongly depends on
+the data, i.e., the dataset itself, the extinction coefficient, and the transfer 
+function. The model outperforms the  baseline, except for simple configurations
+in which the radiance is almost constant (\textsf{ventricles}, extinction
+$80$, transfer function $1$) and for specific camera angles with high variability.
+
+\begin{figure}[p]
+    \centering
+    \includegraphics[width=\linewidth]{model_chameleon.pdf}
+    \caption{
+        Validation loss per ground truth data frame for the
+        \textsf{chameleon} dataset. Columns vary the extinction
+        ($80$, $200$, $1000$) and rows vary the transfer function
+        (TF $1$--$3$). Solid and dashed lines correspond to a static
+        front view and a rotating turntable view at the same angle. Horizontal
+        lines indicate baseline losses, obtained from a constant model that
+        predicts the mean of the training data, averaged over all frames. The
+        middle plot in the last row contains markers for frames $80$ and $135$,
+        which are visualized in \Cref{fig:radiance}.
+    }
+    \label{fig:model_chameleon}
+\end{figure}
+
+\begin{figure}[p]
+    \centering
+    \includegraphics[width=\linewidth]{model_mri_ventricles.pdf}
+    \caption{
+        Validation loss per ground truth data frame for the
+        \textsf{ventricles} dataset. Columns vary the extinction
+        ($80$, $200$, $1000$) and rows vary the transfer function
+        (TF $1$--$3$). Solid and dashed lines correspond to a static
+        front view and a rotating turntable view at the same angle. Horizontal
+        lines indicate baseline losses, obtained from a constant model that
+        predicts the mean of the training data, averaged over all frames.
+    }
+    \label{fig:model_ventricles}
+\end{figure}
+
+These angles appear in the plots as spikes in the loss values. To understand
+why they are harder to predict, we examine \Cref{fig:radiance}. We see that
+images can vary significantly across angles: some angles have less variability
+in radiance, and some have more. This is particularly evident in the middle
+and right images in this figure. The middle image corresponds to frame $80$,
+where the loss decreases, while the right image corresponds to frame $135$,
+where the loss increases. The latter angle is more difficult to predict because
+it contains distinct regions of different colors with sharp transitions, 
+including one small red region surrounded by both green and yellow radiance 
+values.
+
+We also observe that higher extinction coefficient values correlate with lower
+loss. This is expected because a higher extinction coefficient can be
+interpreted as higher density. In that case, rays are more likely to intersect
+the volume and generate a valid radiance ground truth value. In other words,
+we obtain more data.
+
+The other observation concerns the transfer function correlation, which is most
+evident between the first two transfer functions. With more colors, the
+prediction task becomes more difficult by itself, and the loss is expected to
+be higher. However, this trend is not as clear as with the extinction
+coefficient because designing transfer functions with multiple clearly visible
+colors can be more challenging.
+
+\begin{figure}[t]
+    \centering
+        \begin{subfigure}{0.3\textwidth}
+        \centering
+        \includegraphics[width=0.85\textwidth]
+            {radiance_chameleon_front.png}
+    \end{subfigure}
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \includegraphics[width=0.85\textwidth]
+            {radiance_chameleon_head.png}
+    \end{subfigure}
+    \begin{subfigure}{0.3\textwidth}
+        \centering
+        \includegraphics[width=0.85\textwidth]
+            {radiance_chameleon_insides.png}
+    \end{subfigure}
+    \caption{
+        Visualized ground truth radiance for the \textsf{chameleon}
+        dataset with extinction coefficient $200$ and transfer function $3$,
+        using the front camera angle (left) and the turntable preset at frames
+        $80$ (middle) and $135$ (right). 
+    }
+    \label{fig:radiance}
+\end{figure}
+
+\section{Online training}
+
+To perform a longer model evaluation, we have to do it online in VPT because we
+need more than $\qty{4}{\giga\byte}$ of data. In \Cref{fig:online}, we see that
+the loss converges after around $30$ seconds, except for the difficult turntable
+angles, which take longer and still remain worse than the others. Note that this
+is not the time before we can generate an image. Images are already being
+generated during training, but after the training is complete, neural rendering
+can be enabled to increase performance. The shape of the curve is the same as in
+offline training because we use the same code for both. The only difference is
+the exact frames we export, since renderer performance is now also affected by
+the training running at the same time.
+
+\begin{figure}
+    \centering
+    \vspace{-3mm}
+    \includegraphics{online_chameleon.pdf}
+    \vspace{-5mm}
+    \caption{
+        Validation loss over time for the \textsf{chameleon} dataset. Columns
+        vary the extinction ($80$, $200$, $1000$) for a fixed transfer function
+        (TF $3$). Solid and dashed lines correspond to a static front view and
+        a rotating turntable view at the same angle.
+    }
+    \label{fig:online}
+\end{figure}
+
+\section{Training time}
+
+We show training times for a single frame in \Cref{tab:times}. Since the data
+values themselves, i.e., color, do not affect the times, we do not distinguish
+between transfer functions. As expected, online training is slower because 
+rendering happens at the same time. Training times differ between the datasets 
+because the amount of data generated is different. This is also why higher 
+extinction coefficient values increase the training time. The volumes are denser 
+and more radiance ground truth data values are generated.
+
+\newcommand{\captiontimes}{
+    Per-frame training times in milliseconds for offline and online
+    training, for two volumes at three extinction coefficients. Values are
+    means over all frames and transfer functions, with standard errors
+    indicating uncertainty.
+}
+\input{tables/training_times}
+
+\section{Performance}
+
+We run performance benchmarks on all datasets with varying extinction
+coefficients. We use the turntable camera preset to introduce some
+variability in rendering times, but we use only a single transfer function,
+since colors do not affect performance.
+
+The performance benefits of neural rendering can be seen in
+\Cref{fig:stages}. The duration of the different stages and the amount of
+improvement vary by dataset and renderer configuration, but in this case we
+see that indirect radiance computation in path tracing takes much longer
+than direct radiance. With neural rendering, this stage is
+drastically accelerated, making it even faster than direct illumination.
+
+For these experiments, we compute the speedup of neural rendering over path
+tracing and show the results in \Cref{fig:speedups-L} for all datasets. The
+times are computed as means over the $120$-second benchmark. We observe
+that using a higher extinction coefficient yields greater improvement. This is
+expected because path-traced indirect illumination takes longer in this case,
+while neural rendering performance does not depend on the extinction
+coefficient.
+
+In some cases, neural rendering with extinction coefficients of $80$ and $200$
+does not improve performance because path tracing is already sufficiently fast.
+This also explains why speedups vary across datasets. The improvement is greater
+for those that are more demanding to render. Similar conclusions can be drawn
+from the speedups for global illumination. The speedup values are lower in this
+case because the direct illumination stage remains unchanged.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics{stage_times.pdf}
+    \caption{
+        Duration of the three main rendering stages on the \ac{gpu} for the 
+        \textsf{chameleon} dataset with transfer function $3$ and an extinction
+        coefficient of $1000$. Sample generation is the most expensive part in
+        this case, but it has the same cost in both renderers. The same applies
+        to direct radiance calculation, while the cost of indirect radiance is
+        reduced in neural rendering. The periodic spikes result from angles
+        that are more demanding to render, caused by the turntable camera
+        preset.
+    }
+    \label{fig:stages}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \vspace{-3mm}
+    \includegraphics{speedups_L.pdf}
+    \vspace{-8mm}
+    \caption{
+        Per-dataset speedup of neural rendering over path tracing on the
+        \ac{gpu}, measured for the indirect illumination stage (left) and for
+        global illumination with direct and indirect components combined
+        (right). All experiments used the turntable camera preset with transfer
+        function $3$ and varying extinction coefficients ($80$, $200$,
+        $1000$). The shaded area indicates speedups below $1$, where neural
+        rendering is slower than path tracing. Speedup consistently increases
+        with the extinction coefficient, but the gains are smaller on the right
+        because the direct illumination stage remains unchanged.
+    }
+    \label{fig:speedups-L}
+\end{figure}
+
+All timings were computed entirely on the \ac{gpu}, and we did not take into
+account the sample generation stage. The actual speed of the renderer depends
+on the \emph{frame time}, i.e., the time required to render a single frame from
+start to finish, and on its reciprocal, \emph{\ac{fps}}. We show speedups based
+on these values in \Cref{fig:speedups-ft}. In most cases, the speedup is
+smaller, but depending on the dataset it can be even higher, e.g.,
+\textsf{miranda}. In certain circumstances, the speedup can become extremely
+large, e.g., \textsf{heptane} with an extinction coefficient of $200$ compared
+to values $80$ and $1000$. This is because path tracing becomes much slower
+when switching from $80$ to $200$, whereas neural rendering degrades later.
+
+All speedup values from \Cref{fig:speedups-L,fig:speedups-ft} are also listed
+in \Cref{tab:speedups-L,tab:speedups-ft}. For the stages, we additionally
+report the times for direct illumination, which are approximately the same for
+both methods. We observe that our indirect illumination times remain nearly
+constant, in contrast to path tracing, where they increase quickly with a
+higher extinction coefficient. This can lead to drastic improvements when
+using neural rendering compared to path tracing. Across all datasets, the
+speedup for indirect illumination is $2.06$, and for global illumination it
+is $1.52$. For frame times, the overall speedup is $1.28$, but when using more
+samples per pixel it can reach $1.36$ (see \Cref{tab:high-samples}), because
+neural rendering is more beneficial in more demanding configurations, where
+path tracing performance degrades more quickly.
+
+% SE for stages is around 0.01-0.05, less than 0.15, except:
+% chameleon 200 PT Li: 0.18
+% chameleon 1000 PT Li: 0.30
+% marmoset 1000 PT Li: 0.29
+% vismale 1000 PT Li: 0.20
+
+\clearpage
+\begin{figure}[t]
+    \centering
+    \vspace{-3mm}
+    \includegraphics{speedups_ft.pdf}
+    \vspace{-3mm}
+    \caption{
+        Per-dataset speedup in total frame time of neural rendering over path
+        tracing. All experiments used the turntable camera preset with transfer 
+        function $3$ and varying extinction coefficients ($80$, $200$, $1000$).
+        The shaded area indicates speedups below $1$, where neural rendering is
+        slower. Speedups are smaller than in \Cref{fig:speedups-L} because
+        indirect radiance accounts for a smaller portion of the total frame time.
+    }
+    \label{fig:speedups-ft}
+\end{figure}
+
+\footnotetext[1]{
+    Standard errors are omitted for brevity. They are approximately
+    $0.01$--$0.05$ and mostly less than $0.15$, except for path tracing 
+    indirect illumination in experiments (\textsf{chameleon}, $200$ and $1000$),
+    (\textsf{neurons}, $1000$), and (\textsf{vismale}, $1000$), for which they
+    are below $0.3$.
+}
+
+\newcommand{\captionhighsamples}{
+    Frame times in milliseconds with standard errors and the corresponding
+    \ac{fps} for three experiments with higher samples per pixel ($20$), using
+    the turntable camera preset and transfer function $3$. Speedup is defined as
+    the ratio of frame times between our method and path tracing. Speedups are
+    higher than in \Cref{tab:speedups-ft} because neural rendering is more
+    beneficial for more demanding configurations. The last row shows the sum
+    over all experiments.
+}
+\input{tables/high_samples}
+
+\newcommand{\captionspeedupsL}{
+    \ac{gpu} stage times in milliseconds across all datasets and extinction
+    coefficients, using the turntable camera preset and transfer function
+    $3$. $L_d$ and $L_i$ denote the direct and indirect illumination stages,
+    $L = L_d + L_i$ is the combined global illumination, and $S_{L_i}$ and $S_L$
+    are the corresponding speedups. The last row shows the sum over all
+    experiments.\protect\footnotemark[1]
+}
+\input{tables/stage_speedup}
+
+\newcommand{\captionspeedupsFT}{
+    Frame times in milliseconds with standard errors and the corresponding
+    \ac{fps} across all datasets and extinction coefficients, using the
+    turntable camera preset and transfer function $3$. Speedup is the ratio of
+    frame times between our method and path tracing, where values below $1$
+    indicate that our method is slower. The last row shows the sum over all 
+    experiments.
+}
+\input{tables/frame_speedup}
+
+\section{Image quality}
+
+We evaluate image quality using the metrics \emph{\ac{ssim}}, \emph{\ac{lpips}},
+and \emph{\ac{psnr}}. For \ac{ssim} and \ac{psnr}, higher values indicate better
+quality, whereas for \ac{lpips}, lower values indicate better quality.
+\ac{ssim} and \ac{lpips} have a practical range of $[0, 1]$, while \ac{psnr} is
+measured in decibels, with typical values from \qtyrange{30}{50}{\decibel}.
+
+\begin{figure}[b!]
+    \centering
+    \includegraphics{quality_front_bonsai_200_3.pdf}
+    \caption{
+        Quality metrics for the \textsf{bonsai} dataset with extinction
+        coefficient $200$ and transfer function $3$, computed as the mean
+        over $10$ runs against a reference image.
+    }
+    \label{fig:q-bonsai}
+\end{figure}
+
+\begin{figure}[p]
+    \centering
+    \renewcommand*{\arraystretch}{0}
+    \setkeys{Gin}{width=0.21\textwidth}
+    \settoheight{\imgh}{\includegraphics{front/bonsai_200_3_indirect_nr.png}}
+    \begin{tabular}{@{}c@{\hspace{5pt}}*{4}{@{}c}@{}}
+        & \multicolumn{2}{c}{\footnotesize Indirect illumination}
+        & \multicolumn{2}{c}{\footnotesize Global illumination} \\[5pt]
+        & \footnotesize Ours & \footnotesize Path tracing
+        & \footnotesize Ours & \footnotesize Path tracing \\[5pt]
+        \rowlab{\textsf{bonsai}\\($200$, $3$)} &
+        \includegraphics{front/bonsai_200_3_indirect_nr.png}    & 
+        \includegraphics{front/bonsai_200_3_indirect_pt.png}    & 
+        \includegraphics{front/bonsai_200_3_global_nr.png}      & 
+        \includegraphics{front/bonsai_200_3_global_pt.png}      \\ 
+        \rowlab{\textsf{chameleon}\\($200$, $2$)} &
+        \includegraphics{front/chameleon_200_2_indirect_nr.png} & 
+        \includegraphics{front/chameleon_200_2_indirect_pt.png} & 
+        \includegraphics{front/chameleon_200_2_global_nr.png}   & 
+        \includegraphics{front/chameleon_200_2_global_pt.png}   \\
+        \rowlab{\textsf{silicium}\\($1000$, $2$)} &
+        \includegraphics{front/silicium_1000_2_indirect_nr.png} & 
+        \includegraphics{front/silicium_1000_2_indirect_pt.png} & 
+        \includegraphics{front/silicium_1000_2_global_nr.png}   & 
+        \includegraphics{front/silicium_1000_2_global_pt.png}   \\
+        \rowlab{\textsf{chameleon}\\($200$, $3$)} &
+        \includegraphics{chameleon_200_3_60_indirect_nr.png}    &
+        \includegraphics{chameleon_200_3_60_indirect_pt.png}    &
+        \includegraphics{chameleon_200_3_60_global_nr.png}      &
+        \includegraphics{chameleon_200_3_60_global_pt.png}      \\
+        \rowlab{\textsf{chameleon}\\($200$, $3$)} &
+        \includegraphics{chameleon_200_3_240_indirect_nr.png}   &
+        \includegraphics{chameleon_200_3_240_indirect_pt.png}   &
+        \includegraphics{chameleon_200_3_240_global_nr.png}     &
+        \includegraphics{chameleon_200_3_240_global_pt.png}     \\
+        \rowlab{\textsf{chameleon}\\($200$, $3$)} &
+        \includegraphics{chameleon_200_3_300_indirect_nr.png}   &
+        \includegraphics{chameleon_200_3_300_indirect_pt.png}   &
+        \includegraphics{chameleon_200_3_300_global_nr.png}     &
+        \includegraphics{chameleon_200_3_300_global_pt.png}     \\
+    \end{tabular}
+    \caption{
+        Comparison of our method against path tracing for the front camera
+        preset (first three rows), and for the turntable preset with degrees
+        $60$, $240$, and $300$ (last three rows). All images were rendered for
+        $10$ seconds.
+    }
+    \label{fig:quality-images}
+\end{figure}
+
+For all datasets, we first compare images accumulated over $10$ seconds to
+reference images rendered for $3$ minutes. We compare the global illumination
+and, separately, the indirect illumination, which is the only difference
+between path tracing and our method. Images for the following plots
+are shown in \Cref{fig:quality-images}.
+
+In \Cref{fig:q-bonsai}, we see that our method fails to predict the correct
+indirect radiance for the \textsf{bonsai} dataset. The issue is that we do not
+accurately predict very dark leaves; however, because indirect illumination has
+little impact in this case, the final image still matches the path-traced one
+according to \ac{ssim} and \ac{lpips}. Only when considering \ac{psnr} do we
+see the advantage of path tracing.
+
+Our method performs better on the \textsf{chameleon} dataset, as shown in
+\Cref{fig:q-chameleon}. In the first $4$ seconds, we outperform path tracing
+according to \ac{lpips}, and the global illumination starts off better for all
+metrics, even though we fall below path tracing in the end.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics{plots/quality_front_chameleon_200_2.pdf}
+    \caption{
+        Quality metrics for the \textsf{chameleon} dataset with extinction
+        coefficient $200$ and transfer function $2$, computed as the mean
+        over $10$ runs against a reference image.
+    }
+    \label{fig:q-chameleon}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics{plots/quality_front_silicium_1000_2.pdf}
+    \caption{
+        Quality metrics for the \textsf{silicium} dataset with extinction
+        coefficient $1000$ and transfer function $2$, computed as the mean
+        over $10$ runs against a reference image.   
+    }
+    \label{fig:q-silicium}
+\end{figure}
+
+Similarly, our renderer initially performs well on the \textsf{silicium} dataset
+in \Cref{fig:q-silicium}. After $10$ seconds, path tracing again yields better 
+results, which is most evident from the \ac{psnr} in both cases. For the last two
+examples, we can see in \Cref{fig:quality-images} that our images and the
+path-traced images are hard to distinguish with the naked eye because the causes
+of the worse metrics are not limited to incorrectly predicted colors. We also
+only approximate transparency using volume density instead of running full delta
+tracking. This prevents better quality metric values even if we predict
+colors more accurately.
+
+Because of this, we only show values for all metrics after $0.5$ seconds in
+\Cref{tab:chameleon-0_5-global,tab:chameleon-0_5-indirect}. We can see that
+there are configurations for which our method performs better in global
+illumination according to at least two metrics, e.g., extinction coefficients
+$80$ and $200$ with transfer functions $2$ and $3$. In most cases, these are
+\ac{ssim} and \ac{lpips}, while we usually fall behind on \ac{psnr}. For
+indirect illumination metrics, we see that we are always better according to
+\ac{lpips} while performing worse on \ac{ssim} and \ac{psnr}, as already shown
+in \Cref{fig:q-chameleon,fig:q-silicium}. We obtain similar results for at
+least some configurations in all other datasets except the \textsf{miranda}
+dataset. All tables for those datasets are included in \Cref{ch:quality}.
+
+\input{tables/quality/chameleon_0-5_global}
+\input{tables/quality/chameleon_0-5_indirect}
+
+\begin{figure}[p]
+    \centering
+    \renewcommand*{\arraystretch}{0}
+    \setkeys{Gin}{width=0.19\textwidth}
+    \settoheight{\imgh}{\includegraphics{good/bonsai_80_3_indirect_nr.png}}
+    \begin{tabular}{@{}c@{\hspace{5pt}}*{4}{@{}c}@{}}
+        & \multicolumn{2}{c}{\footnotesize Indirect illumination}
+        & \multicolumn{2}{c}{\footnotesize Global illumination} \\[5pt]
+        & \footnotesize Ours & \footnotesize Path tracing
+        & \footnotesize Ours & \footnotesize Path tracing \\[5pt]
+        \rowlab{\textsf{bonsai}\\($80$, $3$)} &
+        \includegraphics{good/bonsai_80_3_indirect_nr.png}           & 
+        \includegraphics{good/bonsai_80_3_indirect_pt.png}           & 
+        \includegraphics{good/bonsai_80_3_global_nr.png}             & 
+        \includegraphics{good/bonsai_80_3_global_pt.png}             \\ 
+        \rowlab{\textsf{heptane}\\($80$, $3$)} &
+        \includegraphics{good/csafe_heptane_80_3_indirect_nr.png}    & 
+        \includegraphics{good/csafe_heptane_80_3_indirect_pt.png}    & 
+        \includegraphics{good/csafe_heptane_80_3_global_nr.png}      & 
+        \includegraphics{good/csafe_heptane_80_3_global_pt.png}      \\ 
+        \rowlab{\textsf{frog}\\($200$, $2$)} &
+        \includegraphics{good/frog_200_2_indirect_nr.png}            & 
+        \includegraphics{good/frog_200_2_indirect_pt.png}            & 
+        \includegraphics{good/frog_200_2_global_nr.png}              & 
+        \includegraphics{good/frog_200_2_global_pt.png}              \\ 
+        \rowlab{\textsf{neurons}\\($80$, $2$)} &
+        \includegraphics{good/marmoset_neurons_80_2_indirect_nr.png} & 
+        \includegraphics{good/marmoset_neurons_80_2_indirect_pt.png} & 
+        \includegraphics{good/marmoset_neurons_80_2_global_nr.png}   & 
+        \includegraphics{good/marmoset_neurons_80_2_global_pt.png}   \\ 
+        \rowlab{\textsf{miranda}\\($1000$, $1$)} &
+        \includegraphics{good/miranda_1000_1_indirect_nr.png}        & 
+        \includegraphics{good/miranda_1000_1_indirect_pt.png}        & 
+        \includegraphics{good/miranda_1000_1_global_nr.png}          & 
+        \includegraphics{good/miranda_1000_1_global_pt.png}          \\ 
+        \rowlab{\textsf{silicium}\\($200$, $3$)} &
+        \includegraphics{good/silicium_200_3_indirect_nr.png}        & 
+        \includegraphics{good/silicium_200_3_indirect_pt.png}        & 
+        \includegraphics{good/silicium_200_3_global_nr.png}          & 
+        \includegraphics{good/silicium_200_3_global_pt.png}          \\ 
+        \rowlab{\textsf{vismale}\\($1000$, $1$)} &
+        \includegraphics{good/vismale_1000_1_indirect_nr.png}        & 
+        \includegraphics{good/vismale_1000_1_indirect_pt.png}        & 
+        \includegraphics{good/vismale_1000_1_global_nr.png}          & 
+        \includegraphics{good/vismale_1000_1_global_pt.png}          \\ 
+    \end{tabular}
+    \caption{
+        Comparison of our method against path tracing after $0.5$ seconds
+        where our method performs better according to \ac{lpips}.
+    }
+    \label{fig:quality-good}
+\end{figure}
+
+\begin{figure}[p]
+    \centering
+    \renewcommand*{\arraystretch}{0}
+    \setkeys{Gin}{width=0.19\textwidth}
+    \settoheight{\imgh}{\includegraphics{bad/bonsai_1000_3_indirect_nr.png}}
+    \begin{tabular}{@{}c@{\hspace{5pt}}*{4}{@{}c}@{}}
+        & \multicolumn{2}{c}{\footnotesize Indirect illumination}
+        & \multicolumn{2}{c}{\footnotesize Global illumination} \\[5pt]
+        & \footnotesize Ours & \footnotesize Path tracing
+        & \footnotesize Ours & \footnotesize Path tracing \\[5pt]
+        \rowlab{\textsf{bonsai}\\($1000$, $3$)} &
+        \includegraphics{bad/bonsai_1000_3_indirect_nr.png}          & 
+        \includegraphics{bad/bonsai_1000_3_indirect_pt.png}          & 
+        \includegraphics{bad/bonsai_1000_3_global_nr.png}            & 
+        \includegraphics{bad/bonsai_1000_3_global_pt.png}            \\ 
+        \rowlab{\textsf{chameleon}\\($1000$, $3$)} &
+        \includegraphics{bad/chameleon_1000_3_indirect_nr.png}       & 
+        \includegraphics{bad/chameleon_1000_3_indirect_pt.png}       & 
+        \includegraphics{bad/chameleon_1000_3_global_nr.png}         & 
+        \includegraphics{bad/chameleon_1000_3_global_pt.png}         \\ 
+        \rowlab{\textsf{frog}\\($80$, $3$)} &
+        \includegraphics{bad/frog_80_3_indirect_nr.png}              & 
+        \includegraphics{bad/frog_80_3_indirect_pt.png}              & 
+        \includegraphics{bad/frog_80_3_global_nr.png}                & 
+        \includegraphics{bad/frog_80_3_global_pt.png}                \\ 
+        \rowlab{\textsf{neurons}\\($200$, $2$)} &
+        \includegraphics{bad/marmoset_neurons_200_2_indirect_nr.png} & 
+        \includegraphics{bad/marmoset_neurons_200_2_indirect_pt.png} & 
+        \includegraphics{bad/marmoset_neurons_200_2_global_nr.png}   & 
+        \includegraphics{bad/marmoset_neurons_200_2_global_pt.png}   \\ 
+        \rowlab{\textsf{miranda}\\($1000$, $3$)} &
+        \includegraphics{bad/miranda_1000_3_indirect_nr.png}         & 
+        \includegraphics{bad/miranda_1000_3_indirect_pt.png}         & 
+        \includegraphics{bad/miranda_1000_3_global_nr.png}           & 
+        \includegraphics{bad/miranda_1000_3_global_pt.png}           \\ 
+        \rowlab{\textsf{ventricles}\\($200$, $2$)} &
+        \includegraphics{bad/mri_ventricles_200_2_indirect_nr.png}   & 
+        \includegraphics{bad/mri_ventricles_200_2_indirect_pt.png}   & 
+        \includegraphics{bad/mri_ventricles_200_2_global_nr.png}     & 
+        \includegraphics{bad/mri_ventricles_200_2_global_pt.png}     \\ 
+        \rowlab{\textsf{vismale}\\($1000$, $3$)} &
+        \includegraphics{bad/vismale_1000_3_indirect_nr.png}         & 
+        \includegraphics{bad/vismale_1000_3_indirect_pt.png}         & 
+        \includegraphics{bad/vismale_1000_3_global_nr.png}           & 
+        \includegraphics{bad/vismale_1000_3_global_pt.png}           \\ 
+    \end{tabular}
+    \caption{
+        Comparison of our method against path tracing after $0.5$ seconds
+        where our method performs worse in most metrics.
+    }
+    \label{fig:quality-bad}
+\end{figure}
+
+\begin{figure}[b!]
+    \vspace{-1mm}
+    \centering
+    \includegraphics{plots/quality_turntable.pdf}
+    \vspace{-2mm}
+    \caption{
+        Quality metrics for the \textsf{chameleon} dataset with extinction
+        coefficient $200$ and transfer function $3$, computed as the mean
+        over $10$ runs. We compare images converged after $0.5$ and $10$
+        seconds for every $30$ degrees of the turntable camera preset against
+        reference images.
+    }
+    \label{fig:q-turntable}
+\end{figure}
+
+Based on our results, we selected images in
+\Cref{fig:quality-good,fig:quality-bad}, showing both good and bad examples. In
+the good examples, our method achieved lower \ac{lpips} values after $0.5$ seconds.
+Most colors are predicted well, with the largest color inaccuracies in the
+\textsf{miranda} dataset. The differences are usually more pronounced for indirect
+illumination, but better results there do not necessarily imply better results
+for global illumination. In some cases, the final composed image turns out worse.
+
+In the bad examples, we can see that the model still fails to predict accurate
+colors in some cases. It has difficulties predicting orange in both the
+\textsf{bonsai} and \textsf{miranda} datasets, while in the \textsf{frog} dataset
+it fails to predict any color at all because black absorption values prevail. In
+these cases, the final image usually depends more on direct illumination, so the
+final difference between our method and path tracing is smaller.
+
+To evaluate how well the method performs at different camera angles, we use the
+turntable camera preset and run the same experiment at every $30$ degrees. We
+show the results after $0.5$ and $10$ seconds in \Cref{fig:q-turntable}. As
+before, path tracing performs better in the end, but according to \ac{lpips},
+our initial images are closer to the reference ones for all angles. From these
+plots, we can also clearly see how different angles affect performance. The
+images for $60$, $240$, and $300$ degrees are also shown in
+\Cref{fig:quality-images}. The front and back of the chameleon, i.e., $60$
+and $240$ degrees, perform the best, with $300$ degrees being the worst.
+
+\section{Number of samples}
+
+Until now, all quality evaluations have been performed on accumulated images.
+We observed that our method performs better in the initial stages. For this
+reason, we now evaluate images without accumulation. To do this, we generate 
+only a single frame with different values for samples per pixel.
+
+In \Cref{fig:spp-i}, our method produces less noisy results, an improvement
+that is both visible and reflected in the quality metrics. We obtain better
+\ac{lpips} values in all \textsf{chameleon} and \textsf{heptane} examples,
+as well as better \ac{ssim} and \ac{psnr} values in many of them, which we
+had not achieved before. Although we fail to predict the correct colors in
+the \textsf{neurons} dataset, we still achieve slightly better results for
+$1$, $4$, and $8$ samples per pixel, especially in terms of \ac{lpips}. This
+is likely because these images are very noisy when using path tracing.
+
+\begin{figure}
+    \centering
+    \includegraphics{samples_chameleon_indirect.pdf}
+    \includegraphics{samples_csafe_heptane_indirect.pdf}
+    \includegraphics{samples_marmoset_neurons_indirect.pdf}
+    \caption{
+        A single non-accumulated indirect illumination frame for the
+        \textsf{chameleon}, \textsf{heptane}, and \textsf{neurons} datasets
+        with extinction coefficient $200$ and transfer function $3$, using
+        $1$, $4$, $8$, and $16$ samples per pixel. The rightmost images are
+        accumulated images after $3$ minutes with $5$ samples per pixel. The
+        metrics are shown in order as \ac{ssim}~$\uparrow$,
+        \ac{lpips}~$\downarrow$, and \ac{psnr}~$\uparrow$.
+    }
+    \label{fig:spp-i}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics{samples_chameleon_global.pdf}
+    \caption{
+        A single non-accumulated global illumination frame for the
+        \textsf{chameleon} dataset with extinction 
+        coefficient $200$ and transfer function $3$, using $1$, $4$, $8$,
+        and $16$ samples per pixel. The rightmost images are accumulated images 
+        after $3$ minutes with $5$ samples per pixel. The metrics are shown in
+        order as \ac{ssim}~$\uparrow$, \ac{lpips}~$\downarrow$, and
+        \ac{psnr}~$\uparrow$.
+    }
+    \label{fig:spp-g}
+\end{figure}
+
+In the previous examples, we examined indirect illumination images, which are
+a direct output of our method. The final global illumination image is
+additionally composed with direct illumination from path tracing. As a result,
+this image is again noisier, but in \Cref{fig:spp-g} we observe that, although
+the difference is smaller, our method still performs better than path tracing
+and produces less noisy images.
+
+\begin{figure}[b!]
+    \centering
+    \includegraphics{filter_model_chameleon.pdf}
+    \caption{
+        Validation loss per ground truth data frame for the \textsf{chameleon}
+        dataset using the front camera preset. Columns vary the extinction
+        ($80$, $200$, $1000$) for a fixed transfer function (TF $2$). The orange
+        lines indicate baseline losses, obtained from a constant model that
+        predicts the mean of the training data, averaged over all frames.
+    }
+    \label{fig:filter-model}
+\end{figure}
+
+\section{Bilateral filter}
+
+To evaluate how our method performs with filtering enabled, we repeat the
+previous experiments at a smaller scale. We evaluate how well the model learns,
+the performance of the renderer, and image quality compared to path tracing.
+
+In \Cref{fig:filter-model} we see that the loss function values are lower than
+without filtering because all colors are averaged, which makes the prediction
+task easier. The margin between our model and the baseline model is even larger
+than before, and both models already perform well with an extinction coefficient
+of $1000$.
+
+\begin{figure}[b!]
+    \centering
+    \includegraphics{quality_filter_chameleon_200_3.pdf}
+    \caption{
+        Quality metrics for the \textsf{chameleon} dataset with extinction
+        coefficient $200$ and transfer function $3$, computed as the mean over
+        $10$ runs against a reference image. Both methods used filtering.
+    }
+    \label{fig:filter-quality}
+\end{figure}
+
+With filtering enabled, our model still improves performance over path
+tracing, but the speedups are generally lower (see \Cref{tab:filter-speedup}).
+For example, for extinction coefficient $1000$, the speedups are $1.20$
+($1.32$ before), $1.15$ ($1.32$ before), and $1.43$ ($1.48$ before). The
+overall speedup is also lower ($1.15$ instead of $1.28$), which is expected.
+When filtering is enabled, there is one additional \ac{gpu} stage. This stage
+has less work with our method because we do not have to filter indirect
+radiance, but this does not reduce its runtime since it is already less
+demanding, which in turn reduces the overall speedup.
+
+\newcommand{\captionfilterspeedup}{
+    Frame times in milliseconds with standard errors and the corresponding
+    \ac{fps} for the \textsf{chameleon}, \textsf{heptane}, and \textsf{neurons}
+    datasets with filtering enabled, using the turntable camera preset and
+    transfer function $3$. Speedup is the ratio of frame times between our
+    method and path tracing, where values below $1$ indicate that our method is
+    slower. The last row shows the sum over all experiments.
+}
+\input{tables/filter_speedup}
+
+Our method still does not generate images as good as path tracing after $10$
+seconds, but as before, we are better according to \ac{lpips} at the beginning
+in some cases, e.g., for the \textsf{chameleon} dataset in
+\Cref{fig:filter-quality}. For the other two datasets, we do not improve over
+path tracing in any metric. We come close for the \textsf{heptane} dataset,
+where the images are quite similar to the naked eye. On the other hand, the
+method fails completely for the \textsf{neurons} dataset because it predicts
+no color at all. Values for all of these metrics are given in
+\Cref{tab:filter-quality}, with the images themselves in
+\Cref{fig:filter-images}.
+
+\input{tables/filter_quality_0-5}
+
+\begin{figure}
+    \centering
+    \renewcommand*{\arraystretch}{0}
+    \setkeys{Gin}{width=0.19\textwidth}
+    \settoheight{\imgh}{\includegraphics{bad/bonsai_1000_3_indirect_nr.png}}
+    \begin{tabular}{@{}c@{\hspace{5pt}}*{4}{@{}c}@{}}
+        & \multicolumn{2}{c}{\footnotesize Indirect illumination}
+        & \multicolumn{2}{c}{\footnotesize Global illumination} \\[5pt]
+        & \footnotesize Ours & \footnotesize Path tracing
+        & \footnotesize Ours & \footnotesize Path tracing \\[5pt]
+        \rowlab{\textsf{chameleon}\\($200$, $3$)} &
+        \includegraphics{filter/chameleon_200_3_indirect_nr.png}        & 
+        \includegraphics{filter/chameleon_200_3_indirect_pt.png}        & 
+        \includegraphics{filter/chameleon_200_3_global_nr.png}          & 
+        \includegraphics{filter/chameleon_200_3_global_pt.png}          \\ 
+        \rowlab{\textsf{heptane}\\($200$, $3$)} &  
+        \includegraphics{filter/csafe_heptane_200_3_indirect_nr.png}    & 
+        \includegraphics{filter/csafe_heptane_200_3_indirect_pt.png}    & 
+        \includegraphics{filter/csafe_heptane_200_3_global_nr.png}      & 
+        \includegraphics{filter/csafe_heptane_200_3_global_pt.png}      \\ 
+        \rowlab{\textsf{neurons}\\($200$, $3$)} &
+        \includegraphics{filter/marmoset_neurons_200_3_indirect_nr.png} & 
+        \includegraphics{filter/marmoset_neurons_200_3_indirect_pt.png} & 
+        \includegraphics{filter/marmoset_neurons_200_3_global_nr.png}   & 
+        \includegraphics{filter/marmoset_neurons_200_3_global_pt.png}   \\ 
+
+    \end{tabular}
+    \caption{
+        Comparison of our method against path tracing after $0.5$ seconds
+        with filtering enabled.
+    }
+    \label{fig:filter-images}
+\end{figure}
